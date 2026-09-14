@@ -1,0 +1,35 @@
+{
+  "name": "create-dda-stack",
+  "version": "0.1.0",
+  "description": "Scaffold a React Native project (RN CLI, Expo, or Superapp/Module Federation host+remote) with navigation, React Query, an Axios client, env config, and your choice of package manager.",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "create-dda-stack": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "templates"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --target node18 --clean",
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.9.1",
+    "execa": "^9.5.2",
+    "picocolors": "^1.1.1",
+    "validate-npm-package-name": "^6.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/validate-npm-package-name": "^4.0.2",
+    "tsup": "^8.3.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

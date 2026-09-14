@@ -1,6 +1,7 @@
 import * as p from '@clack/prompts';
 import validateProjectName from 'validate-npm-package-name';
 import { detectPackageManager, type PackageManager } from './packageManager.js';
+import { renderBanner } from './banner.js';
 
 export type Framework = 'rn-cli' | 'expo' | 'superapp';
 
@@ -12,6 +13,7 @@ export interface AnswerSet {
 }
 
 export async function runPrompts(cliProjectName?: string): Promise<AnswerSet> {
+  console.log(renderBanner('LET PLAY !'));
   p.intro('create-dda-stack');
 
   const detectedPm = detectPackageManager();

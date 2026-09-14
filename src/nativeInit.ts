@@ -1,7 +1,6 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
-import * as p from '@clack/prompts';
 import { runDlx } from './packageManager.js';
 import type { PackageManager } from './packageManager.js';
 
@@ -48,6 +47,11 @@ export async function initReactNativeCli(
       pm === 'pnpm' ? 'npm' : pm,
     ],
     scratchParent,
+    // Defensive: the generator's own output is captured rather than streamed, so
+    // if it ever shows an interactive prompt we can't relay (e.g. an "already
+    // exists" confirmation — not expected here since callers check the target
+    // directory is empty first, but this bounds it instead of hanging forever).
+    { timeout: 60_000 },
   );
   fs.rmSync(scratchParent, { recursive: true, force: true });
 }
@@ -56,33 +60,23 @@ export async function initExpo(projectName: string, destDir: string) {
   const parentDir = path.dirname(destDir);
   fs.mkdirSync(parentDir, { recursive: true });
 
-  try {
-    await runDlx(
-      // Always npm's dlx (npx) — see the comment in initReactNativeCli above for why.
-      'npm',
-      [
-        'create-expo-app@latest',
-        destDir,
-        '--template',
-        'blank-typescript',
-        '--no-install',
-        '--no-agents-md',
-      ],
-      parentDir,
-      // Defensive safety net: generous vs. the ~5-30s this normally takes (even on
-      // a slow network/big download), in case a dlx runner ever leaves the
-      // generator process hanging after it's already finished writing the project.
-      { timeout: 60_000 },
-    );
-  } catch (err) {
-    const timedOut = (err as { timedOut?: boolean }).timedOut === true;
-    if (!timedOut || !fs.existsSync(path.join(destDir, 'app.json'))) {
-      throw err;
-    }
-    p.log.warn(
-      'The Expo generator did not exit after finishing (npm did not report completion in time) — continuing anyway.',
-    );
-  }
+  await runDlx(
+    // Always npm's dlx (npx) — see the comment in initReactNativeCli above for why.
+    'npm',
+    [
+      'create-expo-app@latest',
+      destDir,
+      '--template',
+      'blank-typescript',
+      '--no-install',
+      '--no-agents-md',
+    ],
+    parentDir,
+    // Interactive: create-expo-app can show its own prompt (e.g. picking an SDK
+    // version) — inherit stdio so it's visible and answerable. No timeout here
+    // on purpose: a human may genuinely need time to read and respond to it.
+    { interactive: true },
+  );
 
   // create-expo-app has no --skip-git-init flag — it always inits a repo. Strip it
   // so git init happens at the point the user actually wants it, matching the

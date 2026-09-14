@@ -8,10 +8,12 @@ import {
   installDependencies,
   ensurePackageManagerAvailable,
   formatRunCommand,
+  formatCommandError,
   type PackageManager,
 } from './packageManager.js';
 import { overlayTemplate, TEMPLATES_ROOT, type TemplateVars } from './scaffold.js';
 import { initReactNativeCli, initExpo } from './nativeInit.js';
+import { question } from './theme.js';
 
 const REMOTE_DEV_PORT = 9003;
 
@@ -29,15 +31,24 @@ async function buildRnCliApp(opts: {
   vars: TemplateVars;
   overlayDir: string;
   label: string;
+  useReactotron: boolean;
+  useNativewind: boolean;
 }) {
-  // No spinner here: the generator runs with inherited stdio and can show its own
-  // interactive prompts, which would fight an animated spinner for the terminal.
-  p.log.step(`Generating native project for ${opts.label}`);
+  // Spinner is safe here: the generator's own output is captured, not streamed,
+  // so there's nothing else writing to the terminal for it to fight with.
+  const s = p.spinner();
+  s.start(`Generating native project for ${opts.label}`);
   await initReactNativeCli(opts.appName, opts.destDir, opts.pm);
-  p.log.success(`Native project generated for ${opts.label}`);
+  s.stop(`Native project generated for ${opts.label}`);
 
   overlayTemplate(path.join(TEMPLATES_ROOT, 'common'), opts.destDir, opts.vars);
   overlayTemplate(opts.overlayDir, opts.destDir, opts.vars);
+  if (opts.useReactotron) {
+    overlayTemplate(path.join(TEMPLATES_ROOT, 'reactotron', 'overlay'), opts.destDir, opts.vars);
+  }
+  if (opts.useNativewind) {
+    overlayTemplate(path.join(TEMPLATES_ROOT, 'nativewind', 'rn-cli-overlay'), opts.destDir, opts.vars);
+  }
 }
 
 async function buildExpoApp(opts: {
@@ -45,14 +56,24 @@ async function buildExpoApp(opts: {
   destDir: string;
   vars: TemplateVars;
   label: string;
+  useReactotron: boolean;
+  useNativewind: boolean;
 }) {
-  // No spinner here — see the comment in buildRnCliApp above.
+  // No spinner here specifically: this step inherits stdio on purpose (Expo's
+  // generator can show its own interactive prompt, e.g. picking an SDK version),
+  // and an animated spinner would fight it for the terminal — see initExpo().
   p.log.step(`Generating Expo project for ${opts.label}`);
   await initExpo(opts.appName, opts.destDir);
   p.log.success(`Expo project generated for ${opts.label}`);
 
   overlayTemplate(path.join(TEMPLATES_ROOT, 'common'), opts.destDir, opts.vars);
   overlayTemplate(path.join(TEMPLATES_ROOT, 'expo', 'overlay'), opts.destDir, opts.vars);
+  if (opts.useReactotron) {
+    overlayTemplate(path.join(TEMPLATES_ROOT, 'reactotron', 'overlay'), opts.destDir, opts.vars);
+  }
+  if (opts.useNativewind) {
+    overlayTemplate(path.join(TEMPLATES_ROOT, 'nativewind', 'expo-overlay'), opts.destDir, opts.vars);
+  }
 }
 
 async function main() {
@@ -76,6 +97,8 @@ async function main() {
       destDir,
       vars: { projectName: answers.projectName, projectSlug: answers.projectSlug },
       label: answers.projectName,
+      useReactotron: answers.useReactotron,
+      useNativewind: answers.useNativewind,
     });
 
     await maybeInstallAndFinish([{ dir: destDir, label: answers.projectSlug }], pm, framework);
@@ -93,6 +116,8 @@ async function main() {
       vars: { projectName: answers.projectName, projectSlug: answers.projectSlug },
       overlayDir: path.join(TEMPLATES_ROOT, 'rn-cli', 'overlay'),
       label: answers.projectName,
+      useReactotron: answers.useReactotron,
+      useNativewind: answers.useNativewind,
     });
 
     await maybeInstallAndFinish([{ dir: destDir, label: answers.projectSlug }], pm, framework);
@@ -122,6 +147,10 @@ async function main() {
     vars: sharedVars,
     overlayDir: path.join(TEMPLATES_ROOT, 'superapp', 'host-overlay'),
     label: `${hostSlug} (host)`,
+    useReactotron: answers.useReactotron,
+    // NativeWind isn't supported for superapp yet (Re.Pack/Rspack, not Metro) —
+    // prompts.ts never asks in this case, so this is always false here.
+    useNativewind: false,
   });
 
   await buildRnCliApp({
@@ -131,6 +160,8 @@ async function main() {
     vars: sharedVars,
     overlayDir: path.join(TEMPLATES_ROOT, 'superapp', 'remote-overlay'),
     label: `${remoteSlug} (sub-app)`,
+    useReactotron: answers.useReactotron,
+    useNativewind: false,
   });
 
   await maybeInstallAndFinish(
@@ -149,21 +180,23 @@ async function maybeInstallAndFinish(
   framework: Framework,
 ) {
   const shouldInstall = await p.confirm({
-    message: `Install dependencies with ${pm} now? (${projects.length} project${projects.length > 1 ? 's' : ''})`,
+    message: question(
+      `Install dependencies with ${pm} now? (${projects.length} project${projects.length > 1 ? 's' : ''})`,
+    ),
     initialValue: true,
   });
 
   if (!p.isCancel(shouldInstall) && shouldInstall) {
     for (const project of projects) {
-      // No spinner: the install command runs with inherited stdio and prints its
-      // own live progress, which would fight an animated spinner for the terminal.
-      p.log.step(`Running ${pm} install in ${project.label}`);
+      // Spinner is safe here too — see the comment in buildRnCliApp above.
+      const s = p.spinner();
+      s.start(`Running ${pm} install in ${project.label}`);
       try {
         await installDependencies(project.dir, pm);
-        p.log.success(`Dependencies installed in ${project.label}`);
+        s.stop(`Dependencies installed in ${project.label}`);
       } catch (err) {
-        p.log.error(`Install failed in ${project.label}`);
-        p.log.error(String(err));
+        s.stop(`Install failed in ${project.label}`);
+        p.log.error(formatCommandError(err));
       }
     }
   }
@@ -179,6 +212,10 @@ async function maybeInstallAndFinish(
     if (!installed) lines.push(`  ${formatRunCommand(pm, 'install')}`);
     if (framework === 'expo') {
       lines.push('  npx expo prebuild  # generates native ios/ and android/ — run once before building natively');
+    } else {
+      lines.push(
+        '  cd ios && bundle install && bundle exec pod install && cd ..  # run once, and again after adding native deps',
+      );
     }
     lines.push(`  ${formatRunCommand(pm, 'ios')}`);
     lines.push(`  ${formatRunCommand(pm, 'android')}`);
@@ -192,6 +229,6 @@ async function maybeInstallAndFinish(
 
 main().catch(err => {
   p.cancel('Something went wrong.');
-  console.error(err);
+  console.error(formatCommandError(err));
   process.exit(1);
 });

@@ -1,6 +1,6 @@
 {
   "name": "create-dda-stack",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Scaffold a React Native project (RN CLI, Expo, or Superapp/Module Federation host+remote) with navigation, React Query, an Axios client, env config, and your choice of package manager.",
   "type": "module",
   "license": "MIT",

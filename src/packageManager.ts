@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import * as p from '@clack/prompts';
+import { question } from './theme.js';
 
 export type PackageManager = 'npm' | 'yarn' | 'pnpm' | 'bun';
 
@@ -32,10 +33,28 @@ const DLX_PREFIX: Record<PackageManager, string[]> = {
   bun: ['bunx'],
 };
 
+// Both of these capture output instead of streaming it to the terminal (execa's
+// default `stdio`) — the underlying tools are noisy (banners, progress bars,
+// dependency listings) and none of that is interactive input we'd need to relay.
+// On failure the caller can still surface `err.all` for debugging.
+
 export async function installDependencies(projectDir: string, pm: PackageManager) {
+  if (pm === 'yarn') {
+    // Yarn Berry treats the nearest ancestor directory with its own package.json
+    // as this project's root unless projectDir is declared as one of its
+    // workspaces or has its own lockfile — which fails whenever the generated
+    // project happens to sit inside another yarn/npm-managed directory (e.g.
+    // this CLI's own repo during local testing, or a company monorepo). An empty
+    // yarn.lock marks it as self-contained, per Yarn's own suggested fix.
+    const lockfilePath = path.join(projectDir, 'yarn.lock');
+    if (!fs.existsSync(lockfilePath)) {
+      fs.writeFileSync(lockfilePath, '');
+    }
+  }
+
   await execa(pm, INSTALL_ARGS[pm], {
     cwd: projectDir,
-    stdio: 'inherit',
+    all: true,
   });
 }
 
@@ -44,13 +63,20 @@ export async function runDlx(
   pm: PackageManager,
   pkgAndArgs: string[],
   cwd: string,
-  opts?: { timeout?: number },
+  opts?: {
+    timeout?: number;
+    // Some generators (create-expo-app, at least) can show their own interactive
+    // prompt (e.g. picking an SDK version) — inherit stdio so it's actually
+    // visible and answerable, instead of hanging on unreadable/unanswerable
+    // piped stdin. Only opt into this where that's a known possibility.
+    interactive?: boolean;
+  },
 ) {
   const [prefixCmd, ...prefixArgs] = DLX_PREFIX[pm];
   await execa(prefixCmd, [...prefixArgs, ...pkgAndArgs], {
     cwd,
-    stdio: 'inherit',
     timeout: opts?.timeout,
+    ...(opts?.interactive ? { stdio: 'inherit' } : { all: true }),
   });
 }
 
@@ -122,7 +148,7 @@ async function installViaCorepack(pm: 'yarn' | 'pnpm'): Promise<boolean> {
 
 async function installBun(): Promise<boolean> {
   const shouldInstall = await p.confirm({
-    message: 'bun is not installed. Install it now via the official installer (curl | bash)?',
+    message: question('bun is not installed. Install it now via the official installer (curl | bash)?'),
     initialValue: true,
   });
   if (p.isCancel(shouldInstall) || !shouldInstall) return false;
@@ -144,6 +170,17 @@ async function installBun(): Promise<boolean> {
   const ok = await isBunAvailable();
   s.stop(ok ? 'bun installed' : 'bun installation finished, but bun is still not on PATH');
   return ok;
+}
+
+/** Extracts the most useful debugging text from a failed execa call — its
+ *  captured output, not just the generic "Command failed with exit code 1". */
+export function formatCommandError(err: unknown): string {
+  if (err && typeof err === 'object' && 'shortMessage' in err) {
+    const e = err as { shortMessage?: string; all?: string; stderr?: string };
+    const output = e.all || e.stderr;
+    return output ? `${e.shortMessage}\n\n${output}` : String(e.shortMessage ?? err);
+  }
+  return String(err);
 }
 
 export function formatRunCommand(pm: PackageManager, script: string): string {

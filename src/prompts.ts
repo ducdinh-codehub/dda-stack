@@ -2,6 +2,7 @@ import * as p from '@clack/prompts';
 import validateProjectName from 'validate-npm-package-name';
 import { detectPackageManager, type PackageManager } from './packageManager.js';
 import { renderBanner } from './banner.js';
+import { question } from './theme.js';
 
 export type Framework = 'rn-cli' | 'expo' | 'superapp';
 
@@ -10,6 +11,8 @@ export interface AnswerSet {
   projectSlug: string;
   framework: Framework;
   packageManager: PackageManager;
+  useReactotron: boolean;
+  useNativewind: boolean;
 }
 
 export async function runPrompts(cliProjectName?: string): Promise<AnswerSet> {
@@ -19,7 +22,7 @@ export async function runPrompts(cliProjectName?: string): Promise<AnswerSet> {
   const detectedPm = detectPackageManager();
 
   const projectName = cliProjectName ?? (await p.text({
-    message: 'Project name?',
+    message: question('Project name?'),
     placeholder: 'my-app',
     validate: value => {
       if (!value) return 'Project name is required';
@@ -35,7 +38,7 @@ export async function runPrompts(cliProjectName?: string): Promise<AnswerSet> {
   }
 
   const framework = await p.select({
-    message: 'Which stack do you want to scaffold?',
+    message: question('Which stack do you want to scaffold?'),
     options: [
       { value: 'rn-cli', label: 'React Native CLI', hint: 'bare workflow, full native control' },
       { value: 'expo', label: 'Expo', hint: 'managed workflow, fastest to start' },
@@ -53,7 +56,7 @@ export async function runPrompts(cliProjectName?: string): Promise<AnswerSet> {
   }
 
   const packageManager = await p.select({
-    message: 'Which package manager?',
+    message: question('Which package manager?'),
     initialValue: detectedPm,
     options: [
       { value: 'npm', label: 'npm' },
@@ -68,11 +71,42 @@ export async function runPrompts(cliProjectName?: string): Promise<AnswerSet> {
     process.exit(0);
   }
 
+  const useReactotron = await p.confirm({
+    message: question(
+      'Install and integrate Reactotron? (You still need the Reactotron desktop app running separately — this just wires up the client and adds its config file.)',
+    ),
+    initialValue: false,
+  });
+
+  if (p.isCancel(useReactotron)) {
+    p.cancel('Cancelled.');
+    process.exit(0);
+  }
+
+  // Not supported yet for superapp: it bundles via Re.Pack/Rspack, not Metro, so
+  // NativeWind's Metro plugin doesn't apply there — don't ask a question whose
+  // answer would just be silently ignored.
+  let useNativewind = false;
+  if (framework !== 'superapp') {
+    const answer = await p.confirm({
+      message: question('Install and integrate NativeWind (Tailwind CSS for React Native)?'),
+      initialValue: false,
+    });
+
+    if (p.isCancel(answer)) {
+      p.cancel('Cancelled.');
+      process.exit(0);
+    }
+    useNativewind = answer;
+  }
+
   return {
     projectName: String(projectName),
     projectSlug: toSlug(String(projectName)),
     framework: framework as Framework,
     packageManager: packageManager as PackageManager,
+    useReactotron,
+    useNativewind,
   };
 }
 

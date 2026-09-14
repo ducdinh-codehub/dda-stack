@@ -18,7 +18,7 @@
     "superapp"
   ],
   "bin": {
-    "create-dda-stack": "./dist/index.js"
+    "create-dda-stack": "dist/index.js"
   },
   "files": [
     "dist",

@@ -16,8 +16,8 @@ export interface AnswerSet {
 }
 
 export async function runPrompts(cliProjectName?: string): Promise<AnswerSet> {
-  console.log(renderBanner('LET PLAY !'));
-  p.intro('create-dda-stack');
+  console.log(renderBanner('LET PLAY !', '@dda-stack-0.2.0-2026'));
+  p.intro('Create playground');
 
   const detectedPm = detectPackageManager();
 

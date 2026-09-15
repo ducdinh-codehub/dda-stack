@@ -1,8 +1,19 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import url from 'node:url';
 import * as p from '@clack/prompts';
 import validateProjectName from 'validate-npm-package-name';
 import { detectPackageManager, type PackageManager } from './packageManager.js';
 import { renderBanner } from './banner.js';
 import { question } from './theme.js';
+
+// Reads this package's own version at runtime instead of hardcoding it in the
+// banner, so the banner can't drift out of sync with a version bump again.
+// `../package.json` resolves correctly from both `src/index.ts` (dev, via
+// tsx) and the built `dist/index.js` (published) — both sit one level below
+// the repo root.
+const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
+const { version: cliVersion } = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
 
 export type Framework = 'rn-cli' | 'expo' | 'superapp';
 
@@ -16,7 +27,7 @@ export interface AnswerSet {
 }
 
 export async function runPrompts(cliProjectName?: string): Promise<AnswerSet> {
-  console.log(renderBanner('LET PLAY !', '@dda-stack-0.2.0-2026'));
+  console.log(renderBanner('LET PLAY !', `@dda-stack-${cliVersion}`));
   p.intro('Create playground');
 
   const detectedPm = detectPackageManager();

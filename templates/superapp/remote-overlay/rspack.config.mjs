@@ -1,11 +1,25 @@
 import path from 'node:path';
 import * as Repack from '@callstack/repack';
 import getSharedDependencies from './sharedDeps.js';
+import getFlowAwareJsTransformRules from './getFlowAwareJsTransformRules.js';
 
 /**
  * Remote sub-app: exposes screens/components the host loads at runtime.
  * Run this with its own dev server (see package.json's "start" script) —
  * the host's `remotes` entry points at whatever port this serves on.
+ *
+ * package.additions.json pins @module-federation/enhanced and
+ * @module-federation/runtime to an exact 2.9.0 — don't bump this casually.
+ * @callstack/repack@5.3.0 is built against the older 0.8.x line, but rspack's
+ * own built-in Module Federation runtime template (baked into @rspack/core,
+ * not @module-federation/*) calls `federation.bundlerRuntime.init(...)`,
+ * a method 0.8.x's `webpack-bundler-runtime` doesn't have (only `I`,
+ * `installInitialConsumes`, `initContainerEntry` — no `init`). That mismatch
+ * crashes every app at startup with "[runtime not ready] TypeError: undefined
+ * is not a function" inside a virtual `@module-federation/runtime/rspack.js`
+ * module. 2.9.0's `webpack-bundler-runtime` does have `.init`, and is fully
+ * lockstep-versioned across the whole @module-federation/* family, so use it
+ * instead — despite that not being what repack's own devDependencies test.
  */
 export default env => {
   const { mode = 'development', context = Repack.getDirname(import.meta.url), entry = './index.js', platform = process.env.PLATFORM } = env;
@@ -20,7 +34,12 @@ export default env => {
     context,
     entry,
     resolve: {
-      ...Repack.getResolveOptions(),
+      // enablePackageExports: swc's compiled output requires helpers via
+      // subpaths like '@swc/helpers/_/_interop_require_default', which only
+      // exist through that package's `exports` map — repack's default
+      // resolver config ignores `exports` maps entirely, so every one of
+      // those requires would otherwise resolve to a throwing stub at runtime.
+      ...Repack.getResolveOptions(platform, { enablePackageExports: true }),
       alias: {
         '@src': path.resolve(dirname, 'src'),
       },
@@ -30,7 +49,7 @@ export default env => {
       uniqueName: '{{remoteName}}',
     },
     module: {
-      rules: [...Repack.getAssetTransformRules({ svg: 'xml' }), ...Repack.getJsTransformRules()],
+      rules: [...Repack.getAssetTransformRules({ svg: 'xml' }), ...getFlowAwareJsTransformRules(Repack)],
     },
     devServer: {
       port: {{remotePort}},
@@ -39,6 +58,12 @@ export default env => {
       new Repack.RepackPlugin(),
       new Repack.plugins.ModuleFederationPluginV2({
         name: '{{remoteName}}',
+        // Without an explicit filename, the MF container falls back to the
+        // same 'index.bundle' name as the app's own main bundle (repack's
+        // default output.filename) — two different assets, same filename,
+        // which rspack rejects with "Conflict: Multiple assets emit
+        // different content to the same filename index.bundle".
+        filename: '{{remoteName}}.container.bundle',
         dts: false,
         exposes: {
           './HomeScreen': './src/screens/Home/HomeScreen',

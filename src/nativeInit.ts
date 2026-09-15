@@ -19,6 +19,13 @@ export async function initReactNativeCli(
   projectName: string,
   destDir: string,
   pm: PackageManager,
+  // Pins the scaffolded react-native version. Needed for the superapp flow: RN
+  // 0.87 dropped the root `rn-get-polyfills.js` file that @callstack/repack's
+  // NativeEntryPlugin still `require()`s directly (broken even in repack's
+  // 6.0.0 canaries as of this writing), so a plain `init` at the default
+  // (latest) RN version crashes the superapp's rspack build. Leave unset for
+  // the plain rn-cli flow, which doesn't use repack and has no such conflict.
+  reactNativeVersion?: string,
 ) {
   const scratchParent = fs.mkdtempSync(path.join(os.tmpdir(), 'dda-stack-'));
   await runDlx(
@@ -39,6 +46,7 @@ export async function initReactNativeCli(
       destDir,
       '--skip-install',
       '--skip-git-init',
+      ...(reactNativeVersion ? ['--version', reactNativeVersion] : []),
       '--pm',
       // The native CLI's --pm only recognizes npm/yarn/bun — pnpm isn't a valid
       // value and silently no-ops the whole init if passed. We always pass

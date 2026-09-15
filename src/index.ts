@@ -17,6 +17,10 @@ import { question } from './theme.js';
 
 const REMOTE_DEV_PORT = 9003;
 
+// react-native version pinned for the superapp (repack) flow — see the
+// reactNativeVersion comment on initReactNativeCli in nativeInit.ts for why.
+const SUPERAPP_REACT_NATIVE_VERSION = '0.86.0';
+
 function assertEmptyDir(dir: string) {
   if (fs.existsSync(dir) && fs.readdirSync(dir).length > 0) {
     p.cancel(`Directory "${path.basename(dir)}" already exists and is not empty.`);
@@ -33,12 +37,13 @@ async function buildRnCliApp(opts: {
   label: string;
   useReactotron: boolean;
   useNativewind: boolean;
+  reactNativeVersion?: string;
 }) {
   // Spinner is safe here: the generator's own output is captured, not streamed,
   // so there's nothing else writing to the terminal for it to fight with.
   const s = p.spinner();
   s.start(`Generating native project for ${opts.label}`);
-  await initReactNativeCli(opts.appName, opts.destDir, opts.pm);
+  await initReactNativeCli(opts.appName, opts.destDir, opts.pm, opts.reactNativeVersion);
   s.stop(`Native project generated for ${opts.label}`);
 
   overlayTemplate(path.join(TEMPLATES_ROOT, 'common'), opts.destDir, opts.vars);
@@ -151,6 +156,7 @@ async function main() {
     // NativeWind isn't supported for superapp yet (Re.Pack/Rspack, not Metro) —
     // prompts.ts never asks in this case, so this is always false here.
     useNativewind: false,
+    reactNativeVersion: SUPERAPP_REACT_NATIVE_VERSION,
   });
 
   await buildRnCliApp({
@@ -162,6 +168,7 @@ async function main() {
     label: `${remoteSlug} (sub-app)`,
     useReactotron: answers.useReactotron,
     useNativewind: false,
+    reactNativeVersion: SUPERAPP_REACT_NATIVE_VERSION,
   });
 
   await maybeInstallAndFinish(

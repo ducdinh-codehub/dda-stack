@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import * as p from '@clack/prompts';
 import pc from 'picocolors';
-import { runPrompts, toIdentifier, type Framework } from './prompts.js';
+import { runPrompts, toIdentifier, type Framework, type StateManagement } from './prompts.js';
 import {
   installDependencies,
   ensurePackageManagerAvailable,
@@ -14,12 +14,38 @@ import {
 import { overlayTemplate, TEMPLATES_ROOT, type TemplateVars } from './scaffold.js';
 import { initReactNativeCli, initExpo } from './nativeInit.js';
 import { question } from './theme.js';
+import { addReanimatedForReactNative } from './reanimated.js';
+import { alignWithExpoSdk } from './expoDeps.js';
+import { getXcodeToolchain, isXcodeTooOldForExpoSdk } from './xcode.js';
 
 const REMOTE_DEV_PORT = 9003;
 
-// react-native version pinned for the superapp (repack) flow — see the
-// reactNativeVersion comment on initReactNativeCli in nativeInit.ts for why.
-const SUPERAPP_REACT_NATIVE_VERSION = '0.86.0';
+/**
+ * NativeWind needs reanimated + worklets, whose versions depend on the
+ * generated project's react-native version — see reanimated.ts.
+ */
+function addReanimatedFor(destDir: string) {
+  const added = addReanimatedForReactNative(destDir);
+  if (added.fellBack) {
+    p.log.warn(
+      `No known react-native-reanimated release for react-native ${added.reactNative || '(unknown)'} — ` +
+        `using the newest (${added.reanimated}). If pod install fails, check reanimated's compatibility table.`,
+    );
+  }
+}
+
+/**
+ * Expo SDK 56+ doesn't compile for iOS with Xcode 26.0.x (Swift 6.2) — see
+ * xcode.ts. Warn now rather than letting the first `expo run:ios` fail.
+ */
+async function warnIfXcodeTooOldForExpo(expoSdk: number) {
+  const toolchain = await getXcodeToolchain();
+  if (!toolchain || !isXcodeTooOldForExpoSdk(expoSdk, toolchain)) return;
+  p.log.warn(
+    `Xcode ${toolchain.xcodeVersion} (Swift ${toolchain.swiftMajor}.${toolchain.swiftMinor}) can't build Expo SDK ${expoSdk} for iOS. ` +
+      `Update Xcode before running on iOS — Android is unaffected.`,
+  );
+}
 
 function assertEmptyDir(dir: string) {
   if (fs.existsSync(dir) && fs.readdirSync(dir).length > 0) {
@@ -37,6 +63,7 @@ async function buildRnCliApp(opts: {
   label: string;
   useReactotron: boolean;
   useNativewind: boolean;
+  stateManagement: StateManagement;
   reactNativeVersion?: string;
 }) {
   // Spinner is safe here: the generator's own output is captured, not streamed,
@@ -53,22 +80,28 @@ async function buildRnCliApp(opts: {
   }
   if (opts.useNativewind) {
     overlayTemplate(path.join(TEMPLATES_ROOT, 'nativewind', 'rn-cli-overlay'), opts.destDir, opts.vars);
+    addReanimatedFor(opts.destDir);
+  }
+  if (opts.stateManagement !== 'none') {
+    overlayTemplate(path.join(TEMPLATES_ROOT, 'state', opts.stateManagement), opts.destDir, opts.vars);
   }
 }
 
 async function buildExpoApp(opts: {
   appName: string;
   destDir: string;
+  expoSdk: number;
   vars: TemplateVars;
   label: string;
   useReactotron: boolean;
   useNativewind: boolean;
+  stateManagement: StateManagement;
 }) {
   // No spinner here specifically: this step inherits stdio on purpose (Expo's
-  // generator can show its own interactive prompt, e.g. picking an SDK version),
-  // and an animated spinner would fight it for the terminal — see initExpo().
-  p.log.step(`Generating Expo project for ${opts.label}`);
-  await initExpo(opts.appName, opts.destDir);
+  // generator can show its own interactive prompt), and an animated spinner
+  // would fight it for the terminal — see initExpo().
+  p.log.step(`Generating Expo SDK ${opts.expoSdk} project for ${opts.label}`);
+  await initExpo(opts.appName, opts.destDir, opts.expoSdk);
   p.log.success(`Expo project generated for ${opts.label}`);
 
   overlayTemplate(path.join(TEMPLATES_ROOT, 'common'), opts.destDir, opts.vars);
@@ -78,6 +111,20 @@ async function buildExpoApp(opts: {
   }
   if (opts.useNativewind) {
     overlayTemplate(path.join(TEMPLATES_ROOT, 'nativewind', 'expo-overlay'), opts.destDir, opts.vars);
+    addReanimatedFor(opts.destDir);
+  }
+  if (opts.stateManagement !== 'none') {
+    overlayTemplate(path.join(TEMPLATES_ROOT, 'state', opts.stateManagement), opts.destDir, opts.vars);
+  }
+
+  // Last, so it also corrects the reanimated pair picked by addReanimatedFor —
+  // Expo's tested versions win over our RN-version table.
+  const result = await alignWithExpoSdk(opts.destDir, opts.expoSdk);
+  if (!result) {
+    p.log.warn(
+      `Couldn't fetch Expo SDK ${opts.expoSdk}'s native module versions. ` +
+        `Run \`npx expo install --fix\` after installing, or pod install may fail.`,
+    );
   }
 }
 
@@ -97,14 +144,20 @@ async function main() {
     const destDir = path.resolve(process.cwd(), answers.projectSlug);
     assertEmptyDir(destDir);
 
+    // runPrompts always sets it for expo.
+    const expoSdk = answers.expoSdk!;
     await buildExpoApp({
       appName: answers.projectName,
       destDir,
-      vars: { projectName: answers.projectName, projectSlug: answers.projectSlug },
+      expoSdk,
+      vars: { projectName: answers.projectName, projectSlug: answers.projectSlug, expoSdk: String(expoSdk) },
       label: answers.projectName,
       useReactotron: answers.useReactotron,
       useNativewind: answers.useNativewind,
+      stateManagement: answers.stateManagement,
     });
+
+    await warnIfXcodeTooOldForExpo(expoSdk);
 
     await maybeInstallAndFinish([{ dir: destDir, label: answers.projectSlug }], pm, framework);
     return;
@@ -120,9 +173,11 @@ async function main() {
       pm,
       vars: { projectName: answers.projectName, projectSlug: answers.projectSlug },
       overlayDir: path.join(TEMPLATES_ROOT, 'rn-cli', 'overlay'),
+      reactNativeVersion: answers.reactNativeVersion,
       label: answers.projectName,
       useReactotron: answers.useReactotron,
       useNativewind: answers.useNativewind,
+      stateManagement: answers.stateManagement,
     });
 
     await maybeInstallAndFinish([{ dir: destDir, label: answers.projectSlug }], pm, framework);
@@ -138,11 +193,16 @@ async function main() {
   assertEmptyDir(hostDir);
   assertEmptyDir(remoteDir);
 
+  // runPrompts always sets both for superapp.
+  const repackVersion = answers.repackVersion!;
+  const reactNativeVersion = answers.reactNativeVersion!;
+
   const sharedVars: TemplateVars = {
     projectName: answers.projectName,
     projectSlug: answers.projectSlug,
     remoteName,
     remotePort: String(REMOTE_DEV_PORT),
+    repackVersion,
   };
 
   await buildRnCliApp({
@@ -156,7 +216,8 @@ async function main() {
     // NativeWind isn't supported for superapp yet (Re.Pack/Rspack, not Metro) —
     // prompts.ts never asks in this case, so this is always false here.
     useNativewind: false,
-    reactNativeVersion: SUPERAPP_REACT_NATIVE_VERSION,
+    stateManagement: answers.stateManagement,
+    reactNativeVersion,
   });
 
   await buildRnCliApp({
@@ -168,7 +229,8 @@ async function main() {
     label: `${remoteSlug} (sub-app)`,
     useReactotron: answers.useReactotron,
     useNativewind: false,
-    reactNativeVersion: SUPERAPP_REACT_NATIVE_VERSION,
+    stateManagement: answers.stateManagement,
+    reactNativeVersion,
   });
 
   await maybeInstallAndFinish(

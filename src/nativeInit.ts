@@ -19,12 +19,13 @@ export async function initReactNativeCli(
   projectName: string,
   destDir: string,
   pm: PackageManager,
-  // Pins the scaffolded react-native version. Needed for the superapp flow: RN
-  // 0.87 dropped the root `rn-get-polyfills.js` file that @callstack/repack's
-  // NativeEntryPlugin still `require()`s directly (broken even in repack's
-  // 6.0.0 canaries as of this writing), so a plain `init` at the default
-  // (latest) RN version crashes the superapp's rspack build. Leave unset for
-  // the plain rn-cli flow, which doesn't use repack and has no such conflict.
+  // Pins the scaffolded react-native version. Needed for the superapp flow:
+  // each @callstack/repack release only bundles up to a certain RN minor (e.g.
+  // <= 5.3.x `require()`s the root `rn-get-polyfills.js` that RN 0.87 removed),
+  // so a plain `init` at the default (latest) RN version can crash the
+  // superapp's rspack build. The superapp passes the newest RN its chosen
+  // Re.Pack supports — see REPACK_RELEASES in repack.ts. The plain rn-cli flow
+  // passes whichever version the user picked; unset means the CLI's default (latest).
   reactNativeVersion?: string,
 ) {
   const scratchParent = fs.mkdtempSync(path.join(os.tmpdir(), 'dda-stack-'));
@@ -64,7 +65,7 @@ export async function initReactNativeCli(
   fs.rmSync(scratchParent, { recursive: true, force: true });
 }
 
-export async function initExpo(projectName: string, destDir: string) {
+export async function initExpo(projectName: string, destDir: string, sdk: number) {
   const parentDir = path.dirname(destDir);
   fs.mkdirSync(parentDir, { recursive: true });
 
@@ -75,7 +76,8 @@ export async function initExpo(projectName: string, destDir: string) {
       'create-expo-app@latest',
       destDir,
       '--template',
-      'blank-typescript',
+      // The template's `sdk-NN` dist-tag pins the whole project to that SDK.
+      `blank-typescript@sdk-${sdk}`,
       '--no-install',
       '--no-agents-md',
     ],

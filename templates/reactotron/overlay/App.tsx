@@ -1,12 +1,12 @@
 import './src/config/ReactotronConfig';
 import React from 'react';
-import { QueryProvider } from './src/providers/QueryProvider';
+import { AppProviders } from './src/providers/AppProviders';
 import { RootNavigator } from './src/navigation/RootNavigator';
 
 export default function App() {
   return (
-    <QueryProvider>
+    <AppProviders>
       <RootNavigator />
-    </QueryProvider>
+    </AppProviders>
   );
 }

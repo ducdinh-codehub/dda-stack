@@ -4,7 +4,7 @@
     "android": "expo run:android"
   },
   "devDependencies": {
-    "babel-preset-expo": "^57.0.0",
+    "babel-preset-expo": "~{{expoSdk}}.0.0",
     "react-native-dotenv": "^3.4.11"
   }
 }

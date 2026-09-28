@@ -1,6 +1,6 @@
 # create-dda-stack
 
-Scaffold a React Native project — RN CLI, Expo, or a Superapp (Module Federation host + remote) — with navigation, React Query, an Axios client, env config, and your choice of package manager.
+Scaffold a React Native project — RN CLI, Expo, or a Superapp (Module Federation host + remote) — with navigation, React Query, an Axios client, env config, optional state management (Zustand or Redux Toolkit), and your choice of package manager.
 
 ## Usage
 
@@ -14,7 +14,7 @@ yarn create dda-stack
 bunx create-dda-stack
 ```
 
-You'll be prompted for a project name, a stack, and a package manager. If your package manager isn't installed yet, the CLI offers to install it for you (via corepack for yarn/pnpm, or the official installer for bun).
+You'll be prompted for a project name, a stack, a state management library (Zustand, Redux Toolkit, or none), and a package manager. If your package manager isn't installed yet, the CLI offers to install it for you (via corepack for yarn/pnpm, or the official installer for bun).
 
 ## Stacks
 
@@ -28,6 +28,11 @@ Every generated project includes:
 - React Query, pre-wired with a `QueryProvider`
 - An Axios client with an auth-token interceptor (`AsyncStorage`-backed)
 - `.env` / `.env.example` config, typed via `src/config/env.ts`
+
+Optionally, pick a state management library and it's installed and set up for you:
+
+- **Zustand** — a ready-to-use store in `src/store`, hook-based, no provider needed
+- **Redux Toolkit** — a configured store with an example slice, typed `useAppDispatch` / `useAppSelector` hooks, and the `Provider` wired into the app
 
 ## Requirements
 

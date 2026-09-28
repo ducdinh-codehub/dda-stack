@@ -20,6 +20,10 @@ function getSharedDependencies({ eager = true }) {
     '@react-navigation/native-stack',
     '@react-navigation/bottom-tabs',
     '@tanstack/react-query',
+    // Optional state management — only shared if chosen at scaffold time.
+    'zustand',
+    '@reduxjs/toolkit',
+    'react-redux',
   ];
 
   return Object.fromEntries(

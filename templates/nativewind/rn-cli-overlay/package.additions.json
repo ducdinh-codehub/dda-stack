@@ -1,9 +1,7 @@
 {
   "dependencies": {
     "nativewind": "^4.2.6",
-    "react-native-css-interop": "0.2.6",
-    "react-native-reanimated": "^4.6.0",
-    "react-native-worklets": "0.12.x"
+    "react-native-css-interop": "0.2.6"
   },
   "devDependencies": {
     "tailwindcss": "^3.4.17"

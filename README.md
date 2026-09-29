@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/ducdinh-codehub/dda-stack/main/assets/banner.svg" alt="LET PLAY !" width="800">
+</p>
+
 # create-dda-stack
 
 Scaffold a React Native project — RN CLI, Expo, or a Superapp (Module Federation host + remote) — with navigation, React Query, an Axios client, env config, optional state management (Zustand or Redux Toolkit), and your choice of package manager.

@@ -27,6 +27,7 @@
   "scripts": {
     "build": "tsup src/index.ts --format esm --target node18 --clean",
     "dev": "tsx src/index.ts",
+    "banner": "FORCE_COLOR=3 tsx scripts/generate-banner.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

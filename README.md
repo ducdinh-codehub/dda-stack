@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/ducdinh-codehub/dda-stack/main/assets/banner.svg" alt="LET PLAY !" width="800">
+  <img src="https://cdn.jsdelivr.net/npm/create-dda-stack@latest/assets/banner.svg" alt="LET PLAY !" width="800">
 </p>
 
 # create-dda-stack

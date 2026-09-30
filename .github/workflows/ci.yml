@@ -33,7 +33,7 @@ jobs:
           node dist/index.js --help
 
   scaffold:
-    name: Scaffold ${{ matrix.stack }} / ${{ matrix.state }} / ${{ matrix.pm }}${{ matrix.extra && ' / nativewind' || '' }}
+    name: Scaffold ${{ matrix.stack }} / ${{ matrix.state }} / ${{ matrix.pm }} ${{ matrix.extra }}
     needs: check
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -41,9 +41,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Expo defaults to Expo Router under --yes.
           - { stack: expo, state: none, pm: pnpm }
-          - { stack: expo, state: zustand, pm: npm, extra: --nativewind }
-          - { stack: expo, state: redux-toolkit, pm: yarn }
+          - { stack: expo, state: zustand, pm: npm, extra: --nativewind --reactotron }
+          - { stack: expo, state: redux-toolkit, pm: yarn, extra: --router react-navigation }
+          # Oldest supported SDK: its expo-router has a different native tabs API.
+          - { stack: expo, state: none, pm: pnpm, extra: --expo-sdk 54 }
           - { stack: rn-cli, state: none, pm: npm }
           - { stack: rn-cli, state: zustand, pm: pnpm, extra: --nativewind }
           - { stack: rn-cli, state: redux-toolkit, pm: yarn }
@@ -68,12 +71,18 @@ jobs:
           --install --yes
 
       # Superapp creates app-host + app-remote; the other stacks create app/.
-      - name: Typecheck generated project(s)
+      - name: Typecheck and lint generated project(s)
         working-directory: ${{ runner.temp }}
         run: |
           for dir in app app-host app-remote; do
             [ -d "$dir" ] || continue
-            echo "::group::tsc in $dir"
-            (cd "$dir" && npx tsc --noEmit)
+            echo "::group::$dir"
+            (cd "$dir" && npx tsc --noEmit && npm run lint)
             echo "::endgroup::"
           done
+
+      # tsc can't see entry-point, Babel or NativeWind breakage; bundling can.
+      - name: Bundle with Metro
+        if: matrix.stack == 'expo'
+        working-directory: ${{ runner.temp }}/app
+        run: npx expo export --platform ios --output-dir "$RUNNER_TEMP/export"

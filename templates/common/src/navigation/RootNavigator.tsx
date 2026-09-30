@@ -8,6 +8,11 @@ import type { RootTabParamList } from './types';
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
+// Defined once at module level — an inline arrow in `options` would be a new
+// component on every render (react/no-unstable-nested-components).
+const HomeIcon = ({ size }: { size: number }) => <Text style={{ fontSize: size }}>🏠</Text>;
+const ExploreIcon = ({ size }: { size: number }) => <Text style={{ fontSize: size }}>🧭</Text>;
+
 export function RootNavigator() {
   return (
     <NavigationContainer>
@@ -18,7 +23,7 @@ export function RootNavigator() {
           options={{
             title: '{{projectName}}',
             tabBarLabel: 'Home',
-            tabBarIcon: ({ size }) => <Text style={{ fontSize: size }}>🏠</Text>,
+            tabBarIcon: HomeIcon,
           }}
         />
         <Tab.Screen
@@ -26,7 +31,7 @@ export function RootNavigator() {
           component={ExploreScreen}
           options={{
             tabBarLabel: 'Explore',
-            tabBarIcon: ({ size }) => <Text style={{ fontSize: size }}>🧭</Text>,
+            tabBarIcon: ExploreIcon,
           }}
         />
       </Tab.Navigator>

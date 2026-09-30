@@ -1,6 +1,6 @@
 import { parseArgs } from 'node:util';
 import type { PackageManager } from './packageManager.js';
-import type { Framework, StateManagement } from './prompts.js';
+import type { ExpoRouter, Framework, StateManagement } from './prompts.js';
 import { cliVersion } from './version.js';
 
 /**
@@ -14,6 +14,7 @@ export interface CliOptions {
   framework?: Framework;
   packageManager?: PackageManager;
   stateManagement?: StateManagement;
+  expoRouter?: ExpoRouter;
   reactNativeVersion?: string;
   expoSdk?: number;
   repackVersion?: string;
@@ -26,6 +27,7 @@ export interface CliOptions {
 const FRAMEWORKS: Framework[] = ['rn-cli', 'expo', 'superapp'];
 const PACKAGE_MANAGERS: PackageManager[] = ['npm', 'yarn', 'pnpm', 'bun'];
 const STATE_MANAGEMENTS: StateManagement[] = ['none', 'zustand', 'redux-toolkit'];
+const EXPO_ROUTERS: ExpoRouter[] = ['expo-router', 'react-navigation'];
 
 const HELP = `Usage: create-dda-stack [project-name] [options]
 
@@ -33,6 +35,7 @@ Options:
   --stack <stack>        rn-cli | expo | superapp
   --pm <pm>              npm | yarn | pnpm | bun
   --state <lib>          none | zustand | redux-toolkit
+  --router <router>      expo-router | react-navigation (expo only)
   --rn <version>         React Native version (rn-cli only), e.g. 0.87.1
   --expo-sdk <number>    Expo SDK (expo only), e.g. 57
   --repack <version>     Re.Pack version (superapp only), e.g. 5.4.0
@@ -75,6 +78,7 @@ export function parseCliArgs(argv: string[]): CliOptions {
         stack: { type: 'string' },
         pm: { type: 'string' },
         state: { type: 'string' },
+        router: { type: 'string' },
         rn: { type: 'string' },
         'expo-sdk': { type: 'string' },
         repack: { type: 'string' },
@@ -124,6 +128,7 @@ export function parseCliArgs(argv: string[]): CliOptions {
     ['rn', values.rn, 'rn-cli'],
     ['expo-sdk', values['expo-sdk'], 'expo'],
     ['repack', values.repack, 'superapp'],
+    ['router', values.router, 'expo'],
   ];
   for (const [flag, value, only] of stackOnly) {
     if (value === undefined) continue;
@@ -142,6 +147,7 @@ export function parseCliArgs(argv: string[]): CliOptions {
     framework,
     packageManager: oneOf('pm', values.pm, PACKAGE_MANAGERS),
     stateManagement: oneOf('state', values.state, STATE_MANAGEMENTS),
+    expoRouter: oneOf('router', values.router, EXPO_ROUTERS),
     reactNativeVersion: values.rn?.trim(),
     expoSdk,
     repackVersion: values.repack,

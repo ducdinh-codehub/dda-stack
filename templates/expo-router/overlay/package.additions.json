@@ -1,0 +1,9 @@
+{
+  "main": "expo-router/entry",
+  "dependencies": {
+    "expo-router": "*",
+    "expo-linking": "*",
+    "expo-constants": "*",
+    "expo-status-bar": "*"
+  }
+}

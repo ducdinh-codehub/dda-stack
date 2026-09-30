@@ -55,7 +55,21 @@ export async function installDependencies(projectDir: string, pm: PackageManager
   await execa(pm, INSTALL_ARGS[pm], {
     cwd: projectDir,
     all: true,
+    // Under CI, Yarn Berry defaults to immutable installs and refuses to write
+    // a lockfile — but a freshly generated project has none yet (YN0028).
+    env: pm === 'yarn' ? { YARN_ENABLE_IMMUTABLE_INSTALLS: 'false' } : undefined,
   });
+}
+
+/**
+ * pnpm 10+ skips dependencies' install scripts unless they're approved, and
+ * from pnpm 12 (and on CI with 10) an unapproved one fails the whole install
+ * (ERR_PNPM_IGNORED_BUILDS). Pre-approve the ones our templates pull in —
+ * the same entry `pnpm approve-builds` would write.
+ */
+export function approvePnpmBuilds(projectDir: string, packages: string[]) {
+  const lines = ['allowBuilds:', ...packages.map(name => `  ${name}: true`)];
+  fs.writeFileSync(path.join(projectDir, 'pnpm-workspace.yaml'), lines.join('\n') + '\n');
 }
 
 /** Runs a one-off package binary (e.g. the official RN CLI / Expo init) without installing it globally. */

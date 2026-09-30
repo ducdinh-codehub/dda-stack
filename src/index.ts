@@ -10,6 +10,7 @@ import {
   ensurePackageManagerAvailable,
   formatRunCommand,
   formatCommandError,
+  approvePnpmBuilds,
   type PackageManager,
 } from './packageManager.js';
 import { overlayTemplate, TEMPLATES_ROOT, type TemplateVars } from './scaffold.js';
@@ -99,6 +100,7 @@ async function buildExpoApp(opts: {
   useNativewind: boolean;
   stateManagement: StateManagement;
   expoRouter: ExpoRouter;
+  pm: PackageManager;
 }) {
   // No spinner here specifically: this step inherits stdio on purpose (Expo's
   // generator can show its own interactive prompt), and an animated spinner
@@ -135,6 +137,12 @@ async function buildExpoApp(opts: {
       useReactotron: opts.useReactotron,
       useNativewind: opts.useNativewind,
     });
+  }
+
+  if (opts.pm === 'pnpm') {
+    // eslint-config-expo -> eslint-import-resolver-typescript -> unrs-resolver,
+    // whose postinstall only checks its prebuilt native binding is present.
+    approvePnpmBuilds(opts.destDir, ['unrs-resolver']);
   }
 
   // Last, so it also corrects the reanimated pair picked by addReanimatedFor —
@@ -186,6 +194,7 @@ async function main() {
       stateManagement: answers.stateManagement,
       // runPrompts always sets it for expo.
       expoRouter: answers.expoRouter!,
+      pm,
     });
 
     await warnIfXcodeTooOldForExpo(expoSdk);

@@ -1,0 +1,104 @@
+name: Native builds
+
+# Proves each stack's generated app compiles into a real iOS/Android app —
+# the part ci.yml's typecheck/lint/Metro bundle can't see (Gradle, CocoaPods,
+# Xcode, native module versions).
+#
+# Android runs on Linux and is cheap, so it runs on every push to main.
+# iOS needs a macOS runner, which GitHub bills at 10x for private repos, so it
+# runs weekly, before releases (tags), and on demand from the Actions tab.
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  schedule:
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+
+jobs:
+  android:
+    name: Android / ${{ matrix.stack }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        stack: [expo, rn-cli, superapp]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: 17
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+      - name: Generate project
+        working-directory: ${{ runner.temp }}
+        run: node "$GITHUB_WORKSPACE/dist/index.js" app --stack ${{ matrix.stack }} --state zustand --pm npm --install --yes
+
+      - name: Generate android/ (Expo)
+        if: matrix.stack == 'expo'
+        working-directory: ${{ runner.temp }}/app
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Gradle assembleDebug
+        working-directory: ${{ runner.temp }}
+        run: |
+          for dir in app app-host app-remote; do
+            [ -d "$dir/android" ] || continue
+            echo "::group::$dir"
+            (cd "$dir/android" && ./gradlew assembleDebug --no-daemon)
+            echo "::endgroup::"
+          done
+
+  ios:
+    name: iOS / ${{ matrix.stack }}
+    if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/')
+    runs-on: macos-15
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        stack: [expo, rn-cli, superapp]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+      - name: Generate project
+        working-directory: ${{ runner.temp }}
+        run: node "$GITHUB_WORKSPACE/dist/index.js" app --stack ${{ matrix.stack }} --state zustand --pm npm --install --yes
+
+      # Superapp: the host is the installed app; the remote ships as a bundle.
+      - name: Pick project dir
+        id: dir
+        run: echo "path=${{ runner.temp }}/${{ matrix.stack == 'superapp' && 'app-host' || 'app' }}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate ios/ and install pods (Expo)
+        if: matrix.stack == 'expo'
+        working-directory: ${{ steps.dir.outputs.path }}
+        run: npx expo prebuild --platform ios
+
+      - name: Install pods
+        if: matrix.stack != 'expo'
+        working-directory: ${{ steps.dir.outputs.path }}/ios
+        run: bundle install && bundle exec pod install
+
+      - name: xcodebuild (simulator, unsigned)
+        working-directory: ${{ steps.dir.outputs.path }}/ios
+        run: |
+          workspace=$(ls -d *.xcworkspace | head -1)
+          xcodebuild -workspace "$workspace" -scheme "${workspace%.xcworkspace}" \
+            -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build | tail -50
+          exit "${PIPESTATUS[0]}"

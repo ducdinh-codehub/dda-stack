@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import * as p from '@clack/prompts';
-import { question } from './theme.js';
+import { question, spinner } from './theme.js';
 
 export type PackageManager = 'npm' | 'yarn' | 'pnpm' | 'bun';
 
@@ -123,16 +123,21 @@ const COREPACK_PACKAGE: Record<'yarn' | 'pnpm', string> = {
  * shim; its installer is a `curl | bash` that edits the shell profile, so that
  * one needs an explicit yes from the user first.
  */
-export async function ensurePackageManagerAvailable(pm: PackageManager): Promise<boolean> {
+export async function ensurePackageManagerAvailable(
+  pm: PackageManager,
+  // False under --yes: nobody is there to answer, and the bun installer is a
+  // `curl | bash` that edits the shell profile — never run it unasked.
+  { canPrompt }: { canPrompt: boolean },
+): Promise<boolean> {
   if (pm === 'npm') return true;
-  if (pm === 'bun') return (await isBunAvailable()) || installBun();
+  if (pm === 'bun') return (await isBunAvailable()) || (canPrompt && installBun());
   if (await isCommandAvailable(pm)) return true;
 
   return installViaCorepack(pm);
 }
 
 async function installViaCorepack(pm: 'yarn' | 'pnpm'): Promise<boolean> {
-  const s = p.spinner();
+  const s = spinner();
   s.start(`${pm} not found — activating via corepack`);
   try {
     await execa('corepack', ['enable'], { stdio: 'ignore' });
@@ -153,7 +158,7 @@ async function installBun(): Promise<boolean> {
   });
   if (p.isCancel(shouldInstall) || !shouldInstall) return false;
 
-  const s = p.spinner();
+  const s = spinner();
   s.start('Installing bun');
   try {
     if (process.platform === 'win32') {

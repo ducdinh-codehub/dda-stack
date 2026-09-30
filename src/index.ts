@@ -4,6 +4,7 @@ import path from 'node:path';
 import * as p from '@clack/prompts';
 import pc from 'picocolors';
 import { runPrompts, toIdentifier, type Framework, type StateManagement } from './prompts.js';
+import { parseCliArgs, CliArgsError } from './args.js';
 import {
   installDependencies,
   ensurePackageManagerAvailable,
@@ -13,7 +14,7 @@ import {
 } from './packageManager.js';
 import { overlayTemplate, TEMPLATES_ROOT, type TemplateVars } from './scaffold.js';
 import { initReactNativeCli, initExpo } from './nativeInit.js';
-import { question } from './theme.js';
+import { question, spinner } from './theme.js';
 import { addReanimatedForReactNative } from './reanimated.js';
 import { alignWithExpoSdk } from './expoDeps.js';
 import { getXcodeToolchain, isXcodeTooOldForExpoSdk } from './xcode.js';
@@ -68,7 +69,7 @@ async function buildRnCliApp(opts: {
 }) {
   // Spinner is safe here: the generator's own output is captured, not streamed,
   // so there's nothing else writing to the terminal for it to fight with.
-  const s = p.spinner();
+  const s = spinner();
   s.start(`Generating native project for ${opts.label}`);
   await initReactNativeCli(opts.appName, opts.destDir, opts.pm, opts.reactNativeVersion);
   s.stop(`Native project generated for ${opts.label}`);
@@ -129,11 +130,20 @@ async function buildExpoApp(opts: {
 }
 
 async function main() {
-  const cliArg = process.argv[2];
-  const answers = await runPrompts(cliArg);
+  let opts;
+  try {
+    opts = parseCliArgs(process.argv.slice(2));
+  } catch (err) {
+    if (!(err instanceof CliArgsError)) throw err;
+    console.error(err.message);
+    process.exit(1);
+  }
+  const answers = await runPrompts(opts);
   const { framework, packageManager: pm } = answers;
+  const finish = (projects: Array<{ dir: string; label: string }>) =>
+    maybeInstallAndFinish(projects, pm, framework, opts.install ?? (opts.yes ? true : undefined));
 
-  if (!(await ensurePackageManagerAvailable(pm))) {
+  if (!(await ensurePackageManagerAvailable(pm, { canPrompt: !opts.yes }))) {
     p.cancel(
       `${pm} is required but not available. Re-run and choose a different package manager, or install ${pm} manually first.`,
     );
@@ -159,7 +169,7 @@ async function main() {
 
     await warnIfXcodeTooOldForExpo(expoSdk);
 
-    await maybeInstallAndFinish([{ dir: destDir, label: answers.projectSlug }], pm, framework);
+    await finish([{ dir: destDir, label: answers.projectSlug }]);
     return;
   }
 
@@ -180,7 +190,7 @@ async function main() {
       stateManagement: answers.stateManagement,
     });
 
-    await maybeInstallAndFinish([{ dir: destDir, label: answers.projectSlug }], pm, framework);
+    await finish([{ dir: destDir, label: answers.projectSlug }]);
     return;
   }
 
@@ -233,32 +243,33 @@ async function main() {
     reactNativeVersion,
   });
 
-  await maybeInstallAndFinish(
-    [
-      { dir: hostDir, label: hostSlug },
-      { dir: remoteDir, label: remoteSlug },
-    ],
-    pm,
-    framework,
-  );
+  await finish([
+    { dir: hostDir, label: hostSlug },
+    { dir: remoteDir, label: remoteSlug },
+  ]);
 }
 
 async function maybeInstallAndFinish(
   projects: Array<{ dir: string; label: string }>,
   pm: PackageManager,
   framework: Framework,
+  /** From --install / --no-install / --yes; asked when undefined. */
+  install: boolean | undefined,
 ) {
-  const shouldInstall = await p.confirm({
-    message: question(
-      `Install dependencies with ${pm} now? (${projects.length} project${projects.length > 1 ? 's' : ''})`,
-    ),
-    initialValue: true,
-  });
+  const shouldInstall =
+    install ??
+    (await p.confirm({
+      message: question(
+        `Install dependencies with ${pm} now? (${projects.length} project${projects.length > 1 ? 's' : ''})`,
+      ),
+      initialValue: true,
+    }));
+  const installed = !p.isCancel(shouldInstall) && shouldInstall;
 
-  if (!p.isCancel(shouldInstall) && shouldInstall) {
+  if (installed) {
     for (const project of projects) {
       // Spinner is safe here too — see the comment in buildRnCliApp above.
-      const s = p.spinner();
+      const s = spinner();
       s.start(`Running ${pm} install in ${project.label}`);
       try {
         await installDependencies(project.dir, pm);
@@ -266,11 +277,13 @@ async function maybeInstallAndFinish(
       } catch (err) {
         s.stop(`Install failed in ${project.label}`);
         p.log.error(formatCommandError(err));
+        // Keep going (the next steps are still printed), but exit non-zero so
+        // scripts and CI see that the project is not ready to run.
+        process.exitCode = 1;
       }
     }
   }
 
-  const installed = !p.isCancel(shouldInstall) && shouldInstall;
   const lines = [`${pc.green('Done!')} Created:`, ''];
   for (const project of projects) {
     lines.push(`  ${project.dir}`);

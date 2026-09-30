@@ -5,7 +5,7 @@ import { execa } from 'execa';
  * babel-preset-expo) are versioned to match the SDK number, which the expo
  * overlay relies on (`~{{expoSdk}}.0.0`).
  */
-const MIN_EXPO_SDK = 54;
+export const MIN_EXPO_SDK = 54;
 
 export interface ExpoSdk {
   sdk: number;

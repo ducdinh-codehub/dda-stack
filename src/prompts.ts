@@ -82,7 +82,7 @@ export async function runPrompts(cliProjectName?: string): Promise<AnswerSet> {
       {
         value: 'superapp',
         label: 'Superapp (Module Federation)',
-        hint: 'creates a host app + a sub-app, Re.Pack + Module Federation, matches vc_app_v2_platform',
+        hint: 'creates a host app + a sub-app, wired with Re.Pack + Module Federation',
       },
     ],
   });

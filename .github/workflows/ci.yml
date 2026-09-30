@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Weekly, so a new React Native / Expo / Re.Pack release that breaks
+  # scaffolding shows up here before users hit it — not just when this repo changes.
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+jobs:
+  check:
+    name: Typecheck & build (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # 18 is the floor in package.json "engines".
+        node: [18, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm build
+      - name: Smoke-test the built CLI
+        run: |
+          node dist/index.js --version
+          node dist/index.js --help
+
+  scaffold:
+    name: Scaffold ${{ matrix.stack }} / ${{ matrix.state }} / ${{ matrix.pm }}${{ matrix.extra && ' / nativewind' || '' }}
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { stack: expo, state: none, pm: pnpm }
+          - { stack: expo, state: zustand, pm: npm, extra: --nativewind }
+          - { stack: expo, state: redux-toolkit, pm: yarn }
+          - { stack: rn-cli, state: none, pm: npm }
+          - { stack: rn-cli, state: zustand, pm: pnpm, extra: --nativewind }
+          - { stack: rn-cli, state: redux-toolkit, pm: yarn }
+          - { stack: superapp, state: zustand, pm: pnpm }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+      - name: Generate project
+        working-directory: ${{ runner.temp }}
+        run: >
+          node "$GITHUB_WORKSPACE/dist/index.js" app
+          --stack ${{ matrix.stack }}
+          --state ${{ matrix.state }}
+          --pm ${{ matrix.pm }}
+          ${{ matrix.extra }}
+          --install --yes
+
+      # Superapp creates app-host + app-remote; the other stacks create app/.
+      - name: Typecheck generated project(s)
+        working-directory: ${{ runner.temp }}
+        run: |
+          for dir in app app-host app-remote; do
+            [ -d "$dir" ] || continue
+            echo "::group::tsc in $dir"
+            (cd "$dir" && npx tsc --noEmit)
+            echo "::endgroup::"
+          done

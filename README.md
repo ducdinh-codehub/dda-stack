@@ -4,51 +4,69 @@
 
 # create-dda-stack
 
-Scaffold a React Native project — RN CLI, Expo, or a Superapp (Module Federation host + remote) — with navigation, React Query, an Axios client, env config, optional state management (Zustand or Redux Toolkit), and your choice of package manager.
+Create a ready-to-code React Native app in one command.
 
-## Usage
+## Quick start
 
 ```bash
-pnpm create dda-stack
-# or
-npm create dda-stack@latest
-# or
-yarn create dda-stack
-# or
-bunx create-dda-stack
+npx create-dda-stack@latest
 ```
 
-You'll be prompted for a project name, a stack, a state management library (Zustand, Redux Toolkit, or none), and a package manager. If your package manager isn't installed yet, the CLI offers to install it for you (via corepack for yarn/pnpm, or the official installer for bun).
+Answer a few questions and your app is ready. Works with npm, yarn, pnpm and bun.
 
-## Stacks
+## Pick a stack
 
-- **React Native CLI** — bare workflow, full native control.
-- **Expo** — managed workflow, fastest to start. Ships with a native bottom tab bar that automatically picks up iOS 26's Liquid Glass styling in a development build (`npx expo prebuild` / `expo run:ios`, not Expo Go).
-- **Superapp (Module Federation)** — scaffolds a host app + a sub-app, wired with Re.Pack + Module Federation.
+| Stack | Best for |
+| --- | --- |
+| **Expo** | Starting fast |
+| **React Native CLI** | Full native control |
+| **Superapp** | A host app that loads sub-apps (Re.Pack + Module Federation) |
 
-Every generated project includes:
+## What you get
 
-- React Navigation (bottom tabs, Home + Explore screens as a starting point)
-- React Query, pre-wired with a `QueryProvider`
-- An Axios client with an auth-token interceptor (`AsyncStorage`-backed)
-- `.env` / `.env.example` config, typed via `src/config/env.ts`
+Every app comes with:
 
-Optionally, pick a state management library and it's installed and set up for you:
+- **Navigation** with bottom tabs (Home + Explore)
+- **React Query** for data fetching
+- **Axios** client with auth token handling
+- **`.env`** config with types
 
-- **Zustand** — a ready-to-use store in `src/store`, hook-based, no provider needed
-- **Redux Toolkit** — a configured store with an example slice, typed `useAppDispatch` / `useAppSelector` hooks, and the `Provider` wired into the app
+You can also add:
+
+- **State management**: Zustand or Redux Toolkit
+- **NativeWind**: Tailwind CSS for React Native
+- **Reactotron**: a desktop debugger
+
+## Skip the questions
+
+Pass flags to set up everything in one line:
+
+```bash
+npx create-dda-stack@latest my-app --stack expo --state zustand --pm pnpm --yes
+```
+
+| Flag | Options |
+| --- | --- |
+| `--stack` | `expo`, `rn-cli`, `superapp` |
+| `--state` | `none`, `zustand`, `redux-toolkit` |
+| `--pm` | `npm`, `yarn`, `pnpm`, `bun` |
+| `--nativewind` | Add NativeWind |
+| `--reactotron` | Add Reactotron |
+| `--no-install` | Skip installing dependencies |
+| `--yes` | Use defaults for anything not set |
+
+See `npx create-dda-stack --help` for all flags, including version pinning.
 
 ## Requirements
 
-- Node.js ≥ 18
+Node.js 18 or newer.
 
-## Development
+## Contributing
 
 ```bash
 pnpm install
-pnpm dev        # run the CLI from source (tsx)
-pnpm build      # build dist/
-pnpm typecheck
+pnpm dev     # run from source
+pnpm build
 ```
 
 ## License

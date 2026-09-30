@@ -1,0 +1,10 @@
+ios/
+android/
+.expo/
+dist/
+# Lockfiles, and app.json: Expo's tools (prebuild, expo install) rewrite it in their own format.
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+bun.lock
+app.json

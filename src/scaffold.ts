@@ -17,6 +17,7 @@ const RENAME_MAP: Record<string, string> = {
   npmrc: '.npmrc',
   env: '.env',
   'env.example': '.env.example',
+  prettierignore: '.prettierignore',
 };
 
 /** Files an overlay never touches even when present in the template (native-generated, don't clobber). */
@@ -68,9 +69,10 @@ function copyDir(srcDir: string, destDir: string, vars: TemplateVars, isRoot: bo
 }
 
 /**
- * Templates ship a `package.additions.json` (dependencies/devDependencies/scripts
- * only) instead of a full package.json, so overlaying never clobbers fields the
- * native generator wrote (name, native config blocks, etc.).
+ * Templates ship a `package.additions.json` (dependencies/devDependencies/scripts,
+ * plus `main` when a template replaces the entry point) instead of a full
+ * package.json, so overlaying never clobbers fields the native generator wrote
+ * (name, native config blocks, etc.).
  */
 function mergePackageAdditions(templateDir: string, destDir: string, vars: TemplateVars) {
   const additionsPath = path.join(templateDir, 'package.additions.json');
@@ -85,6 +87,7 @@ function mergePackageAdditions(templateDir: string, destDir: string, vars: Templ
       pkg[field] = { ...pkg[field], ...additions[field] };
     }
   }
+  if (additions.main) pkg.main = additions.main;
 
   fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
 }

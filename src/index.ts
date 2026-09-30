@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import * as p from '@clack/prompts';
 import pc from 'picocolors';
-import { runPrompts, toIdentifier, type Framework, type StateManagement } from './prompts.js';
+import { runPrompts, toIdentifier, type ExpoRouter, type Framework, type StateManagement } from './prompts.js';
 import { parseCliArgs, CliArgsError } from './args.js';
 import {
   installDependencies,
@@ -17,6 +17,7 @@ import { initReactNativeCli, initExpo } from './nativeInit.js';
 import { question, spinner } from './theme.js';
 import { addReanimatedForReactNative } from './reanimated.js';
 import { alignWithExpoSdk } from './expoDeps.js';
+import { finishExpoRouterSetup } from './expoRouter.js';
 import { getXcodeToolchain, isXcodeTooOldForExpoSdk } from './xcode.js';
 
 const REMOTE_DEV_PORT = 9003;
@@ -97,6 +98,7 @@ async function buildExpoApp(opts: {
   useReactotron: boolean;
   useNativewind: boolean;
   stateManagement: StateManagement;
+  expoRouter: ExpoRouter;
 }) {
   // No spinner here specifically: this step inherits stdio on purpose (Expo's
   // generator can show its own interactive prompt), and an animated spinner
@@ -107,6 +109,16 @@ async function buildExpoApp(opts: {
 
   overlayTemplate(path.join(TEMPLATES_ROOT, 'common'), opts.destDir, opts.vars);
   overlayTemplate(path.join(TEMPLATES_ROOT, 'expo', 'overlay'), opts.destDir, opts.vars);
+  // The RN CLI template already ships ESLint + Prettier; Expo's blank one doesn't.
+  overlayTemplate(path.join(TEMPLATES_ROOT, 'lint', 'expo-overlay'), opts.destDir, opts.vars);
+  const useExpoRouter = opts.expoRouter === 'expo-router';
+  if (useExpoRouter) {
+    overlayTemplate(path.join(TEMPLATES_ROOT, 'expo-router', 'overlay'), opts.destDir, opts.vars);
+    if (opts.expoSdk <= 54) {
+      // expo-router 6's native tabs API differs — see the layout's comment.
+      overlayTemplate(path.join(TEMPLATES_ROOT, 'expo-router', 'sdk54-overlay'), opts.destDir, opts.vars);
+    }
+  }
   if (opts.useReactotron) {
     overlayTemplate(path.join(TEMPLATES_ROOT, 'reactotron', 'overlay'), opts.destDir, opts.vars);
   }
@@ -116,6 +128,13 @@ async function buildExpoApp(opts: {
   }
   if (opts.stateManagement !== 'none') {
     overlayTemplate(path.join(TEMPLATES_ROOT, 'state', opts.stateManagement), opts.destDir, opts.vars);
+  }
+  if (useExpoRouter) {
+    finishExpoRouterSetup(opts.destDir, {
+      projectSlug: opts.vars.projectSlug,
+      useReactotron: opts.useReactotron,
+      useNativewind: opts.useNativewind,
+    });
   }
 
   // Last, so it also corrects the reanimated pair picked by addReanimatedFor —
@@ -165,6 +184,8 @@ async function main() {
       useReactotron: answers.useReactotron,
       useNativewind: answers.useNativewind,
       stateManagement: answers.stateManagement,
+      // runPrompts always sets it for expo.
+      expoRouter: answers.expoRouter!,
     });
 
     await warnIfXcodeTooOldForExpo(expoSdk);

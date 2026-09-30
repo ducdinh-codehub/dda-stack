@@ -20,6 +20,8 @@ export type Framework = 'rn-cli' | 'expo' | 'superapp';
 
 export type StateManagement = 'none' | 'zustand' | 'redux-toolkit';
 
+export type ExpoRouter = 'expo-router' | 'react-navigation';
+
 export interface AnswerSet {
   projectName: string;
   projectSlug: string;
@@ -32,6 +34,8 @@ export interface AnswerSet {
   repackVersion?: string;
   /** Expo only: the SDK major version the project is created with, e.g. 57. */
   expoSdk?: number;
+  /** Expo only: file-based routing (Expo Router) or a React Navigation navigator. */
+  expoRouter?: ExpoRouter;
   /**
    * RN CLI: the version the user picked. Superapp: newest react-native that
    * `repackVersion` supports, used for both apps. Unset for Expo.
@@ -127,6 +131,23 @@ export async function runPrompts(opts: CliOptions): Promise<AnswerSet> {
 
   const expoSdk = framework === 'expo' ? await resolveExpoSdk(opts) : undefined;
 
+  const expoRouter: ExpoRouter | undefined =
+    framework !== 'expo'
+      ? undefined
+      : (opts.expoRouter ??
+        (opts.yes
+          ? 'expo-router'
+          : answered(
+              await p.select<ExpoRouter>({
+                message: question('How should navigation work?'),
+                initialValue: 'expo-router',
+                options: [
+                  { value: 'expo-router', label: 'Expo Router', hint: 'file-based routes in app/, Expo’s default' },
+                  { value: 'react-navigation', label: 'React Navigation', hint: 'a navigator defined in code' },
+                ],
+              }),
+            )));
+
   const packageManager: PackageManager =
     opts.packageManager ??
     (opts.yes
@@ -210,6 +231,7 @@ export async function runPrompts(opts: CliOptions): Promise<AnswerSet> {
     useNativewind,
     stateManagement,
     expoSdk,
+    expoRouter,
     repackVersion,
     reactNativeVersion,
   };

@@ -18,7 +18,7 @@ Answer a few questions and your app is ready. Works with npm, yarn, pnpm and bun
 
 | Stack | Best for |
 | --- | --- |
-| **Expo** | Starting fast |
+| **Expo** | Starting fast. Pick Expo Router (file-based) or React Navigation |
 | **React Native CLI** | Full native control |
 | **Superapp** | A host app that loads sub-apps (Re.Pack + Module Federation) |
 
@@ -30,6 +30,7 @@ Every app comes with:
 - **React Query** for data fetching
 - **Axios** client with auth token handling
 - **`.env`** config with types
+- **ESLint + Prettier**, ready to run with `npm run lint`
 
 You can also add:
 
@@ -50,6 +51,7 @@ npx create-dda-stack@latest my-app --stack expo --state zustand --pm pnpm --yes
 | `--stack` | `expo`, `rn-cli`, `superapp` |
 | `--state` | `none`, `zustand`, `redux-toolkit` |
 | `--pm` | `npm`, `yarn`, `pnpm`, `bun` |
+| `--router` | `expo-router`, `react-navigation` (Expo only) |
 | `--nativewind` | Add NativeWind |
 | `--reactotron` | Add Reactotron |
 | `--no-install` | Skip installing dependencies |

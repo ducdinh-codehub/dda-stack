@@ -63,6 +63,14 @@ See `npx create-dda-stack --help` for all flags, including version pinning.
 
 Node.js 18 or newer.
 
+## Report an issue
+
+If something goes wrong, the CLI saves the details to `create-dda-stack-error.log` and prints a link to a pre-filled GitHub issue. Nothing is sent automatically — you review the issue and choose whether to submit it.
+
+<p align="center">
+  <img src="assets/error-report.svg" alt="The CLI showing an error, the saved report file, and a Report this issue on GitHub link" width="800">
+</p>
+
 ## Contributing
 
 ```bash

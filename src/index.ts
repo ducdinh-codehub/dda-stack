@@ -20,6 +20,7 @@ import { addReanimatedForReactNative } from './reanimated.js';
 import { alignWithExpoSdk } from './expoDeps.js';
 import { finishExpoRouterSetup } from './expoRouter.js';
 import { getXcodeToolchain, isXcodeTooOldForExpoSdk } from './xcode.js';
+import { reportError, setReportAnswers, throwIfForcedError } from './errorReport.js';
 
 const REMOTE_DEV_PORT = 9003;
 
@@ -166,6 +167,8 @@ async function main() {
     process.exit(1);
   }
   const answers = await runPrompts(opts);
+  setReportAnswers(answers);
+  throwIfForcedError();
   const { framework, packageManager: pm } = answers;
   const finish = (projects: Array<{ dir: string; label: string }>) =>
     maybeInstallAndFinish(projects, pm, framework, opts.install ?? (opts.yes ? true : undefined));
@@ -307,6 +310,7 @@ async function maybeInstallAndFinish(
       } catch (err) {
         s.stop(`Install failed in ${project.label}`);
         p.log.error(formatCommandError(err));
+        await reportError(err, `${pm} install in ${project.label}`);
         // Keep going (the next steps are still printed), but exit non-zero so
         // scripts and CI see that the project is not ready to run.
         process.exitCode = 1;
@@ -339,8 +343,9 @@ async function maybeInstallAndFinish(
   p.outro(lines.join('\n'));
 }
 
-main().catch(err => {
+main().catch(async err => {
+  p.log.error(formatCommandError(err));
+  await reportError(err, 'scaffold');
   p.cancel('Something went wrong.');
-  console.error(formatCommandError(err));
   process.exit(1);
 });

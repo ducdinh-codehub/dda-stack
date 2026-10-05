@@ -30,6 +30,7 @@ const STATE_MANAGEMENTS: StateManagement[] = ['none', 'zustand', 'redux-toolkit'
 const EXPO_ROUTERS: ExpoRouter[] = ['expo-router', 'react-navigation'];
 
 const HELP = `Usage: create-dda-stack [project-name] [options]
+       create-dda-stack add-miniapp [name] [options]   (see add-miniapp --help)
 
 Options:
   --stack <stack>        rn-cli | expo | superapp

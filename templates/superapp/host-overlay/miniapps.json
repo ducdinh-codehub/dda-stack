@@ -1,0 +1,9 @@
+[
+  {
+    "name": "{{remoteName}}",
+    "title": "Mini App",
+    "icon": "🧩",
+    "port": {{remotePort}},
+    "prodUrl": ""
+  }
+]

@@ -1,42 +1,19 @@
 #!/usr/bin/env node
-import fs from 'node:fs';
 import path from 'node:path';
 import * as p from '@clack/prompts';
-import pc from 'picocolors';
-import { runPrompts, toIdentifier, type ExpoRouter, type Framework, type StateManagement } from './prompts.js';
+import { runPrompts, toIdentifier, type ExpoRouter, type StateManagement } from './prompts.js';
 import { parseCliArgs, CliArgsError } from './args.js';
-import {
-  installDependencies,
-  ensurePackageManagerAvailable,
-  formatRunCommand,
-  formatCommandError,
-  approvePnpmBuilds,
-  type PackageManager,
-} from './packageManager.js';
+import { ensurePackageManagerAvailable, formatCommandError, approvePnpmBuilds, type PackageManager } from './packageManager.js';
 import { overlayTemplate, TEMPLATES_ROOT, type TemplateVars } from './scaffold.js';
-import { initReactNativeCli, initExpo } from './nativeInit.js';
-import { question, spinner } from './theme.js';
-import { addReanimatedForReactNative } from './reanimated.js';
+import { initExpo } from './nativeInit.js';
+import { addReanimatedFor, assertEmptyDir, buildRnCliApp } from './rnCliApp.js';
+import { FIRST_REMOTE_PORT, readMiniApps, syncMiniAppFiles } from './miniApps.js';
+import { maybeInstallAndFinish } from './finish.js';
+import { runAddMiniApp } from './addMiniApp.js';
 import { alignWithExpoSdk } from './expoDeps.js';
 import { finishExpoRouterSetup } from './expoRouter.js';
 import { getXcodeToolchain, isXcodeTooOldForExpoSdk } from './xcode.js';
 import { reportError, setReportAnswers, throwIfForcedError } from './errorReport.js';
-
-const REMOTE_DEV_PORT = 9003;
-
-/**
- * NativeWind needs reanimated + worklets, whose versions depend on the
- * generated project's react-native version — see reanimated.ts.
- */
-function addReanimatedFor(destDir: string) {
-  const added = addReanimatedForReactNative(destDir);
-  if (added.fellBack) {
-    p.log.warn(
-      `No known react-native-reanimated release for react-native ${added.reactNative || '(unknown)'} — ` +
-        `using the newest (${added.reanimated}). If pod install fails, check reanimated's compatibility table.`,
-    );
-  }
-}
 
 /**
  * Expo SDK 56+ doesn't compile for iOS with Xcode 26.0.x (Swift 6.2) — see
@@ -49,46 +26,6 @@ async function warnIfXcodeTooOldForExpo(expoSdk: number) {
     `Xcode ${toolchain.xcodeVersion} (Swift ${toolchain.swiftMajor}.${toolchain.swiftMinor}) can't build Expo SDK ${expoSdk} for iOS. ` +
       `Update Xcode before running on iOS — Android is unaffected.`,
   );
-}
-
-function assertEmptyDir(dir: string) {
-  if (fs.existsSync(dir) && fs.readdirSync(dir).length > 0) {
-    p.cancel(`Directory "${path.basename(dir)}" already exists and is not empty.`);
-    process.exit(1);
-  }
-}
-
-async function buildRnCliApp(opts: {
-  appName: string;
-  destDir: string;
-  pm: PackageManager;
-  vars: TemplateVars;
-  overlayDir: string;
-  label: string;
-  useReactotron: boolean;
-  useNativewind: boolean;
-  stateManagement: StateManagement;
-  reactNativeVersion?: string;
-}) {
-  // Spinner is safe here: the generator's own output is captured, not streamed,
-  // so there's nothing else writing to the terminal for it to fight with.
-  const s = spinner();
-  s.start(`Generating native project for ${opts.label}`);
-  await initReactNativeCli(opts.appName, opts.destDir, opts.pm, opts.reactNativeVersion);
-  s.stop(`Native project generated for ${opts.label}`);
-
-  overlayTemplate(path.join(TEMPLATES_ROOT, 'common'), opts.destDir, opts.vars);
-  overlayTemplate(opts.overlayDir, opts.destDir, opts.vars);
-  if (opts.useReactotron) {
-    overlayTemplate(path.join(TEMPLATES_ROOT, 'reactotron', 'overlay'), opts.destDir, opts.vars);
-  }
-  if (opts.useNativewind) {
-    overlayTemplate(path.join(TEMPLATES_ROOT, 'nativewind', 'rn-cli-overlay'), opts.destDir, opts.vars);
-    addReanimatedFor(opts.destDir);
-  }
-  if (opts.stateManagement !== 'none') {
-    overlayTemplate(path.join(TEMPLATES_ROOT, 'state', opts.stateManagement), opts.destDir, opts.vars);
-  }
 }
 
 async function buildExpoApp(opts: {
@@ -158,9 +95,15 @@ async function buildExpoApp(opts: {
 }
 
 async function main() {
+  const argv = process.argv.slice(2);
+  if (argv[0] === 'add-miniapp') {
+    await runAddMiniApp(argv.slice(1));
+    return;
+  }
+
   let opts;
   try {
-    opts = parseCliArgs(process.argv.slice(2));
+    opts = parseCliArgs(argv);
   } catch (err) {
     if (!(err instanceof CliArgsError)) throw err;
     console.error(err.message);
@@ -244,7 +187,7 @@ async function main() {
     projectName: answers.projectName,
     projectSlug: answers.projectSlug,
     remoteName,
-    remotePort: String(REMOTE_DEV_PORT),
+    remotePort: String(FIRST_REMOTE_PORT),
     repackVersion,
   };
 
@@ -262,6 +205,7 @@ async function main() {
     stateManagement: answers.stateManagement,
     reactNativeVersion,
   });
+  syncMiniAppFiles(hostDir, readMiniApps(hostDir));
 
   await buildRnCliApp({
     appName: `${remoteName}_remote`,
@@ -280,67 +224,6 @@ async function main() {
     { dir: hostDir, label: hostSlug },
     { dir: remoteDir, label: remoteSlug },
   ]);
-}
-
-async function maybeInstallAndFinish(
-  projects: Array<{ dir: string; label: string }>,
-  pm: PackageManager,
-  framework: Framework,
-  /** From --install / --no-install / --yes; asked when undefined. */
-  install: boolean | undefined,
-) {
-  const shouldInstall =
-    install ??
-    (await p.confirm({
-      message: question(
-        `Install dependencies with ${pm} now? (${projects.length} project${projects.length > 1 ? 's' : ''})`,
-      ),
-      initialValue: true,
-    }));
-  const installed = !p.isCancel(shouldInstall) && shouldInstall;
-
-  if (installed) {
-    for (const project of projects) {
-      // Spinner is safe here too — see the comment in buildRnCliApp above.
-      const s = spinner();
-      s.start(`Running ${pm} install in ${project.label}`);
-      try {
-        await installDependencies(project.dir, pm);
-        s.stop(`Dependencies installed in ${project.label}`);
-      } catch (err) {
-        s.stop(`Install failed in ${project.label}`);
-        p.log.error(formatCommandError(err));
-        await reportError(err, `${pm} install in ${project.label}`);
-        // Keep going (the next steps are still printed), but exit non-zero so
-        // scripts and CI see that the project is not ready to run.
-        process.exitCode = 1;
-      }
-    }
-  }
-
-  const lines = [`${pc.green('Done!')} Created:`, ''];
-  for (const project of projects) {
-    lines.push(`  ${project.dir}`);
-  }
-  lines.push('');
-  for (const project of projects) {
-    lines.push(`cd ${path.basename(project.dir)}`);
-    if (!installed) lines.push(`  ${formatRunCommand(pm, 'install')}`);
-    if (framework === 'expo') {
-      lines.push('  npx expo prebuild  # generates native ios/ and android/ — run once before building natively');
-    } else {
-      lines.push(
-        '  cd ios && bundle install && bundle exec pod install && cd ..  # run once, and again after adding native deps',
-      );
-    }
-    lines.push(`  ${formatRunCommand(pm, 'ios')}`);
-    lines.push(`  ${formatRunCommand(pm, 'android')}`);
-  }
-  if (projects.length > 1) {
-    lines.push('', 'Start the sub-app first, then the host — the host loads it over the network.');
-  }
-
-  p.outro(lines.join('\n'));
 }
 
 main().catch(async err => {

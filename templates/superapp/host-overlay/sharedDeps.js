@@ -20,6 +20,10 @@ function getSharedDependencies({ eager = true }) {
     '@react-navigation/native-stack',
     '@react-navigation/bottom-tabs',
     '@tanstack/react-query',
+    // Native view components register by name — a second copy of this lib
+    // loaded with a sub-app would throw "Tried to register two views with
+    // the same name RNCSafeAreaView".
+    'react-native-safe-area-context',
     // Optional state management — only shared if chosen at scaffold time.
     'zustand',
     '@reduxjs/toolkit',

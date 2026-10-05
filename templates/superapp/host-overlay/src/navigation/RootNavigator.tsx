@@ -4,7 +4,8 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { HomeScreen } from '../screens/Home/HomeScreen';
 import { ExploreScreen } from '../screens/Explore/ExploreScreen';
-import { MiniAppScreen } from '../screens/MiniApp/MiniAppScreen';
+import { createMiniAppScreen } from '../miniapps/createMiniAppScreen';
+import miniApps from '../../miniapps.json';
 import type { RootTabParamList } from './types';
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
@@ -13,7 +14,15 @@ const Tab = createBottomTabNavigator<RootTabParamList>();
 // component on every render (react/no-unstable-nested-components).
 const HomeIcon = ({ size }: { size: number }) => <Text style={{ fontSize: size }}>🏠</Text>;
 const ExploreIcon = ({ size }: { size: number }) => <Text style={{ fontSize: size }}>🧭</Text>;
-const MiniAppIcon = ({ size }: { size: number }) => <Text style={{ fontSize: size }}>🧩</Text>;
+
+// One tab per entry in miniapps.json — `npx create-dda-stack add-miniapp <name>`
+// adds entries there. Built at module level for the same reason as the icons.
+const miniAppTabs = miniApps.map(app => ({
+  name: app.name,
+  title: app.title,
+  component: createMiniAppScreen(app.name),
+  icon: ({ size }: { size: number }) => <Text style={{ fontSize: size }}>{app.icon}</Text>,
+}));
 
 export function RootNavigator() {
   return (
@@ -36,15 +45,18 @@ export function RootNavigator() {
             tabBarIcon: ExploreIcon,
           }}
         />
-        <Tab.Screen
-          name="MiniApp"
-          component={MiniAppScreen}
-          options={{
-            title: '{{remoteName}}',
-            tabBarLabel: 'Mini App',
-            tabBarIcon: MiniAppIcon,
-          }}
-        />
+        {miniAppTabs.map(tab => (
+          <Tab.Screen
+            key={tab.name}
+            name={tab.name}
+            component={tab.component}
+            options={{
+              title: tab.title,
+              tabBarLabel: tab.title,
+              tabBarIcon: tab.icon,
+            }}
+          />
+        ))}
       </Tab.Navigator>
     </NavigationContainer>
   );

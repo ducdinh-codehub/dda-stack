@@ -1,2 +1,12 @@
+import React from 'react';
+import { NativeTabScreen } from '../../src/components/NativeTabScreen';
+import { HomeScreen } from '../../src/screens/Home/HomeScreen';
+
 // Route files stay thin: the screen itself lives in src/screens.
-export { HomeScreen as default } from '../../src/screens/Home/HomeScreen';
+export default function HomeRoute() {
+  return (
+    <NativeTabScreen>
+      <HomeScreen />
+    </NativeTabScreen>
+  );
+}

@@ -48,6 +48,10 @@ export default env => {
       path: path.resolve(dirname, 'build/generated', platform),
       uniqueName: '{{remoteName}}',
     },
+    // @react-navigation/elements requires @react-native-masked-view/masked-view
+    // inside a try/catch — it's optional, and the header works without it.
+    // Rspack still warns that it can't be resolved on every build.
+    ignoreWarnings: [/Can't resolve '@react-native-masked-view\/masked-view'/],
     module: {
       rules: [...Repack.getAssetTransformRules({ svg: 'xml' }), ...getFlowAwareJsTransformRules(Repack)],
     },

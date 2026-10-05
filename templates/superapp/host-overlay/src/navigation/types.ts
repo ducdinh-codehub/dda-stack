@@ -1,7 +1,8 @@
 export type RootTabParamList = {
   Home: undefined;
   Explore: undefined;
-  MiniApp: undefined;
+  // One tab per mini-app in miniapps.json, keyed by its name.
+  [miniApp: string]: undefined;
 };
 
 declare global {

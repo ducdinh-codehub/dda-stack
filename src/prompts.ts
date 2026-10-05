@@ -123,6 +123,9 @@ export async function runPrompts(opts: CliOptions): Promise<AnswerSet> {
   if (framework === 'superapp') {
     ({ repackVersion, reactNativeVersion } = await resolveRepack(opts));
     p.log.info(`Using Re.Pack ${repackVersion} with React Native ${reactNativeVersion} for both apps`);
+    p.log.info(
+      'Need more sub-apps later? Run `npx create-dda-stack add-miniapp <name>` in the host — each one gets its own bottom tab.',
+    );
   }
 
   if (framework === 'rn-cli') {

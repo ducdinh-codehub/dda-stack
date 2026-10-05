@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import * as Repack from '@callstack/repack';
 import getSharedDependencies from './sharedDeps.js';
@@ -5,8 +6,10 @@ import getFlowAwareJsTransformRules from './getFlowAwareJsTransformRules.js';
 
 /**
  * Host app: loads remote sub-apps over the network at runtime via Module
- * Federation. Add each sub-app you scaffold with `create-dda-stack` to
- * `remotes` below (dev URL shown; point at your CDN/manifest host in prod).
+ * Federation. The sub-apps come from miniapps.json — add one with
+ * `npx create-dda-stack add-miniapp <name>`. In development each loads from
+ * its own dev server (`port`); in production from `prodUrl`, the base URL
+ * that serves `<platform>/mf-manifest.json` (entries without one are skipped).
  *
  * package.additions.json pins @module-federation/enhanced and
  * @module-federation/runtime to an exact 2.9.0 — don't bump this casually.
@@ -35,9 +38,17 @@ export default env => {
   // get manifest. #RUNTIME-003". 10.0.2.2 is the emulator's fixed alias for
   // the host machine's localhost. This still won't reach a physical Android
   // device — for that, replace it with this machine's LAN IP (and run
-  // `adb reverse tcp:{{remotePort}} tcp:{{remotePort}}` as an alternative to
-  // opening that port on the LAN).
+  // `adb reverse tcp:<port> tcp:<port>` for each mini-app's port as an
+  // alternative to opening those ports on the LAN).
   const remoteDevHost = platform === 'android' ? '10.0.2.2' : 'localhost';
+
+  const miniApps = JSON.parse(fs.readFileSync(path.resolve(dirname, 'miniapps.json'), 'utf8'));
+  const remotes = Object.fromEntries(
+    miniApps
+      .map(app => [app.name, mode === 'development' ? `http://${remoteDevHost}:${app.port}` : app.prodUrl])
+      .filter(([, baseUrl]) => baseUrl)
+      .map(([name, baseUrl]) => [name, `${name}@${baseUrl.replace(/\/$/, '')}/${platform}/mf-manifest.json`]),
+  );
 
   return {
     mode,
@@ -58,6 +69,10 @@ export default env => {
       path: path.resolve(dirname, 'build/generated', platform),
       uniqueName: '{{projectSlug}}-host',
     },
+    // @react-navigation/elements requires @react-native-masked-view/masked-view
+    // inside a try/catch — it's optional, and the header works without it.
+    // Rspack still warns that it can't be resolved on every build.
+    ignoreWarnings: [/Can't resolve '@react-native-masked-view\/masked-view'/],
     module: {
       rules: [...Repack.getAssetTransformRules({ svg: 'xml' }), ...getFlowAwareJsTransformRules(Repack)],
     },
@@ -66,12 +81,7 @@ export default env => {
       new Repack.plugins.ModuleFederationPluginV2({
         name: 'host',
         dts: false,
-        remotes:
-          mode === 'development'
-            ? {
-                '{{remoteName}}': `{{remoteName}}@http://${remoteDevHost}:{{remotePort}}/${platform}/mf-manifest.json`,
-              }
-            : {},
+        remotes,
         shared: getSharedDependencies({ eager: true }),
       }),
     ],

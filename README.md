@@ -59,6 +59,34 @@ npx create-dda-stack@latest my-app --stack expo --state zustand --pm pnpm --yes
 
 See `npx create-dda-stack --help` for all flags, including version pinning.
 
+## Add a mini-app to a superapp
+
+Run this inside your host app (or the folder that contains it):
+
+```bash
+npx create-dda-stack@latest add-miniapp payments --title Payments --icon 💳
+```
+
+This creates a new sub-app next to the host and adds a new bottom tab for it in the host. The sub-app uses the same React Native, Re.Pack, state library and package manager as the host, and gets the next free dev port.
+
+Then start the new sub-app and restart the host's dev server:
+
+```bash
+cd ../my-app-payments && npm start   # serves the new mini-app
+
+# in the host's terminal: stop the dev server (Ctrl+C), then
+npm start -- --reset-cache
+```
+
+> [!IMPORTANT]
+> **Restart the host's dev server after adding a mini-app.** The host only reads its list of mini-apps when the dev server starts. If it was already running, the new tab shows `Cannot find module 'payments/HomeScreen'` until you restart it. Reloading the app isn't enough, but you don't need to rebuild it with `npm run ios` either.
+
+Each mini-app is one entry in the host's `miniapps.json`. Edit that file to change a tab's title or icon, or to set `prodUrl`: the address that serves `<platform>/mf-manifest.json` in release builds. Restart the host's dev server after a change.
+
+If a mini-app uses a native module, install it in the host too and run `pod install` there. Sub-apps can't ship native code to the host.
+
+See `npx create-dda-stack add-miniapp --help` for all flags.
+
 ## Requirements
 
 Node.js 18 or newer.

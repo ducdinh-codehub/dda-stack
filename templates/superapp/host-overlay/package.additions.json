@@ -1,4 +1,7 @@
 {
+  "scripts": {
+    "dev:all": "node scripts/dev-all.mjs"
+  },
   "dependencies": {
     "@callstack/repack": "{{repackVersion}}",
     "@rspack/core": "^2.2.4",

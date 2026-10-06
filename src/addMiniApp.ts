@@ -13,7 +13,7 @@ import {
   installDependencies,
   type PackageManager,
 } from './packageManager.js';
-import { toIdentifier, toSlug, type StateManagement } from './prompts.js';
+import { containerNameProblem, toIdentifier, toSlug, type StateManagement } from './prompts.js';
 import { assertEmptyDir, buildRnCliApp } from './rnCliApp.js';
 import { MINIAPPS_FILE, nextFreePort, readMiniApps, writeMiniApps, type MiniApp } from './miniApps.js';
 import { TEMPLATES_ROOT } from './scaffold.js';
@@ -219,7 +219,8 @@ function validateMiniAppName(value: string | undefined, apps: MiniApp[]): string
   if (!slug) return 'Mini-app name is required';
   if (!/^[a-z]/.test(slug)) return 'Mini-app name must start with a letter';
   const name = toIdentifier(slug);
-  if (name === 'host') return '"host" is reserved for the host app';
+  const problem = containerNameProblem(name);
+  if (problem) return `${problem} — pick another name, e.g. ${slug}-app`;
   if (apps.some(app => app.name === name)) return `The host already has a mini-app named "${name}"`;
   return undefined;
 }

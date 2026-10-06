@@ -413,3 +413,20 @@ export function toSlug(name: string): string {
 export function toIdentifier(slug: string): string {
   return slug.replace(/-/g, '_');
 }
+
+// Module Federation emits the container name as a bare JS variable
+// (`typeof super !== "undefined"`), so a reserved word fails to compile in the host.
+const RESERVED_WORDS = new Set(
+  (
+    'await break case catch class const continue debugger default delete do else enum export extends false ' +
+    'finally for function if implements import in instanceof interface let new null package private protected ' +
+    'public return static super switch this throw true try typeof var void while with yield arguments eval'
+  ).split(' '),
+);
+
+/** Why `name` can't be a mini-app's container name, or undefined if it can. */
+export function containerNameProblem(name: string): string | undefined {
+  if (name === 'host') return '"host" is reserved for the host app';
+  if (RESERVED_WORDS.has(name)) return `"${name}" is a reserved word in JavaScript`;
+  return undefined;
+}

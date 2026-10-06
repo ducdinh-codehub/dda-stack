@@ -69,17 +69,19 @@ npx create-dda-stack@latest add-miniapp payments --title Payments --icon 💳
 
 This creates a new sub-app next to the host and adds a new bottom tab for it in the host. The sub-app uses the same React Native, Re.Pack, state library and package manager as the host, and gets the next free dev port.
 
-Then start the new sub-app and restart the host's dev server:
+Then start everything from the host, in one terminal:
 
 ```bash
-cd ../my-app-payments && npm start   # serves the new mini-app
-
-# in the host's terminal: stop the dev server (Ctrl+C), then
-npm start -- --reset-cache
+npm run dev:all                    # the host plus every mini-app in miniapps.json
+npm run dev:all -- --reset-cache   # extra flags go to every dev server
 ```
 
+`dev:all` prefixes each mini-app's output with its name, skips any mini-app that's already running, and stops them all on Ctrl+C. The host keeps the terminal's keyboard shortcuts (`r` to reload, `d` for the dev menu). You can still start each one yourself with `npm start` in its folder.
+
+If a mini-app tab can't load (its dev server isn't running, or the host wasn't restarted), the tab says why and offers a **Reload app** button instead of crashing.
+
 > [!IMPORTANT]
-> **Restart the host's dev server after adding a mini-app.** The host only reads its list of mini-apps when the dev server starts. If it was already running, the new tab shows `Cannot find module 'payments/HomeScreen'` until you restart it. Reloading the app isn't enough, but you don't need to rebuild it with `npm run ios` either.
+> **Restart the host's dev server after adding a mini-app.** The host only reads its list of mini-apps when the dev server starts. If it was already running, the new tab shows `Cannot find module 'payments/HomeScreen'` until you restart it. Reloading the app isn't enough, but you don't need to rebuild it with `npm run ios` either. `dev:all` won't start while the host is already running, for this reason. Stop the host first.
 
 Each mini-app is one entry in the host's `miniapps.json`. Edit that file to change a tab's title or icon, or to set `prodUrl`: the address that serves `<platform>/mf-manifest.json` in release builds. Restart the host's dev server after a change.
 

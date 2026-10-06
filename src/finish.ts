@@ -61,7 +61,12 @@ export async function maybeInstallAndFinish(
     lines.push(`  ${formatRunCommand(pm, 'android')}`);
   }
   if (projects.length > 1) {
-    lines.push('', 'Start the sub-app first, then the host — the host loads it over the network.');
+    // Superapp: projects[0] is the host.
+    lines.push(
+      '',
+      `Or start every dev server in one terminal: cd ${path.basename(projects[0].dir)} && ${formatRunCommand(pm, 'dev:all')}`,
+      'Otherwise, start the sub-app first, then the host — the host loads it over the network.',
+    );
   }
 
   p.outro(lines.join('\n'));

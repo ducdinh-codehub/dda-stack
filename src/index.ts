@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import path from 'node:path';
 import * as p from '@clack/prompts';
-import { runPrompts, toIdentifier, type ExpoRouter, type StateManagement } from './prompts.js';
+import { containerNameProblem, runPrompts, toIdentifier, type ExpoRouter, type StateManagement } from './prompts.js';
 import { parseCliArgs, CliArgsError } from './args.js';
 import { ensurePackageManagerAvailable, formatCommandError, approvePnpmBuilds, type PackageManager } from './packageManager.js';
 import { overlayTemplate, TEMPLATES_ROOT, type TemplateVars } from './scaffold.js';
@@ -173,7 +173,9 @@ async function main() {
   // framework === 'superapp': always creates two sibling folders — host + sub-app.
   const hostSlug = `${answers.projectSlug}-host`;
   const remoteSlug = `${answers.projectSlug}-remote`;
-  const remoteName = toIdentifier(answers.projectSlug);
+  const baseName = toIdentifier(answers.projectSlug);
+  // "super" or "host" can't be a container name, so that project's mini-app becomes "super_app".
+  const remoteName = containerNameProblem(baseName) ? `${baseName}_app` : baseName;
   const hostDir = path.resolve(process.cwd(), hostSlug);
   const remoteDir = path.resolve(process.cwd(), remoteSlug);
   assertEmptyDir(hostDir);
@@ -192,7 +194,7 @@ async function main() {
   };
 
   await buildRnCliApp({
-    appName: `${remoteName}_host`,
+    appName: `${baseName}_host`,
     destDir: hostDir,
     pm,
     vars: sharedVars,
@@ -208,7 +210,7 @@ async function main() {
   syncMiniAppFiles(hostDir, readMiniApps(hostDir));
 
   await buildRnCliApp({
-    appName: `${remoteName}_remote`,
+    appName: `${baseName}_remote`,
     destDir: remoteDir,
     pm,
     vars: sharedVars,

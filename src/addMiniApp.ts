@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import net from 'node:net';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import * as p from '@clack/prompts';
@@ -195,6 +196,24 @@ function readHostSetup(hostDir: string) {
   };
 }
 
+/** The port `react-native start` uses unless told otherwise. */
+const HOST_DEV_PORT = 8081;
+
+function isPortInUse(port: number): Promise<boolean> {
+  return new Promise(resolve => {
+    const socket = net.connect({ port, host: 'localhost' });
+    socket.once('connect', () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.once('error', () => resolve(false));
+  });
+}
+
+function readHostScripts(hostDir: string): Record<string, string> {
+  return JSON.parse(fs.readFileSync(path.join(hostDir, 'package.json'), 'utf8')).scripts ?? {};
+}
+
 function validateMiniAppName(value: string | undefined, apps: MiniApp[]): string | undefined {
   const slug = toSlug(value ?? '');
   if (!slug) return 'Mini-app name is required';
@@ -317,28 +336,39 @@ export async function runAddMiniApp(argv: string[]) {
   const hostLabel = path.basename(hostDir);
   // npm needs `--` to pass flags through to the script; the others don't.
   const restartHost = `${formatRunCommand(pm, 'start')}${pm === 'npm' ? ' --' : ''} --reset-cache`;
+  // Hosts from 0.5.0 don't have dev:all.
+  const hasDevAll = Boolean(readHostScripts(hostDir)['dev:all']);
 
-  // Printed on its own, not inside the outro, so it isn't lost among the
-  // next steps — skipping it is the most common way this goes wrong.
-  p.log.warn(
-    [
-      pc.bold(pc.yellow(`Restart ${hostLabel}'s dev server to load the new tab.`)),
-      `It only reads ${MINIAPPS_FILE} at startup — until it's restarted, the tab shows`,
-      `"Cannot find module '${name}/HomeScreen'". Reloading the app isn't enough.`,
-    ].join('\n'),
-  );
+  if (await isPortInUse(HOST_DEV_PORT)) {
+    // Printed on its own, not inside the outro, so it isn't lost among the
+    // next steps — skipping it is the most common way this goes wrong.
+    p.log.warn(
+      [
+        pc.bold(pc.yellow(`${hostLabel}'s dev server is running — restart it to load the new tab.`)),
+        `It only reads ${MINIAPPS_FILE} at startup — until it's restarted, the tab shows`,
+        `"Cannot find module '${name}/HomeScreen'". Reloading the app isn't enough.`,
+      ].join('\n'),
+    );
+  }
 
   const lines = [
     `${pc.green('Done!')} Created:`,
     '',
     `  ${remoteDir}`,
     '',
-    `cd ${remoteLabel}`,
-    ...(installed ? [] : [`  ${formatRunCommand(pm, 'install')}`]),
-    `  ${formatRunCommand(pm, 'start')}  # serves the mini-app on port ${port}`,
-    '',
-    `cd ${hostLabel}`,
-    `  ${restartHost}  # stop the running dev server first (Ctrl+C)`,
+    ...(installed ? [] : [`cd ${remoteLabel}`, `  ${formatRunCommand(pm, 'install')}`, '']),
+    ...(hasDevAll
+      ? [
+          `cd ${hostLabel}`,
+          `  ${formatRunCommand(pm, 'dev:all')}  # starts the host and every mini-app`,
+        ]
+      : [
+          `cd ${remoteLabel}`,
+          `  ${formatRunCommand(pm, 'start')}  # serves the mini-app on port ${port}`,
+          '',
+          `cd ${hostLabel}`,
+          `  ${restartHost}  # stop the running dev server first (Ctrl+C)`,
+        ]),
     '',
     `Change the tab's title or icon, or set a production URL, in ${hostLabel}/${MINIAPPS_FILE}.`,
   ];

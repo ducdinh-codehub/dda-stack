@@ -20,7 +20,7 @@ const ExploreIcon = ({ size }: { size: number }) => <Text style={{ fontSize: siz
 const miniAppTabs = miniApps.map(app => ({
   name: app.name,
   title: app.title,
-  component: createMiniAppScreen(app.name),
+  component: createMiniAppScreen(app),
   icon: ({ size }: { size: number }) => <Text style={{ fontSize: size }}>{app.icon}</Text>,
 }));
 

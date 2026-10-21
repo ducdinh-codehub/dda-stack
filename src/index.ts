@@ -8,6 +8,7 @@ import { overlayTemplate, TEMPLATES_ROOT, type TemplateVars } from './scaffold.j
 import { initExpo } from './nativeInit.js';
 import { addReanimatedFor, assertEmptyDir, buildRnCliApp } from './rnCliApp.js';
 import { FIRST_REMOTE_PORT, readMiniApps, syncMiniAppFiles } from './miniApps.js';
+import { buildExpoSuperappApp } from './expoSuperapp.js';
 import { maybeInstallAndFinish } from './finish.js';
 import { runAddMiniApp } from './addMiniApp.js';
 import { alignWithExpoSdk } from './expoDeps.js';
@@ -158,7 +159,7 @@ async function main() {
       destDir,
       pm,
       vars: { projectName: answers.projectName, projectSlug: answers.projectSlug },
-      overlayDir: path.join(TEMPLATES_ROOT, 'rn-cli', 'overlay'),
+      overlayDirs: [path.join(TEMPLATES_ROOT, 'rn-cli', 'overlay')],
       reactNativeVersion: answers.reactNativeVersion,
       label: answers.projectName,
       useReactotron: answers.useReactotron,
@@ -170,7 +171,7 @@ async function main() {
     return;
   }
 
-  // framework === 'superapp': always creates two sibling folders — host + sub-app.
+  // Both superapps always create two sibling folders — host + sub-app.
   const hostSlug = `${answers.projectSlug}-host`;
   const remoteSlug = `${answers.projectSlug}-remote`;
   const baseName = toIdentifier(answers.projectSlug);
@@ -180,6 +181,50 @@ async function main() {
   const remoteDir = path.resolve(process.cwd(), remoteSlug);
   assertEmptyDir(hostDir);
   assertEmptyDir(remoteDir);
+  const superappProjects = [
+    { dir: hostDir, label: hostSlug },
+    { dir: remoteDir, label: remoteSlug },
+  ];
+
+  if (framework === 'expo-superapp') {
+    // runPrompts always sets it for expo-superapp.
+    const expoSdk = answers.expoSdk!;
+    const vars: TemplateVars = {
+      projectName: answers.projectName,
+      projectSlug: answers.projectSlug,
+      remoteName,
+      remotePort: String(FIRST_REMOTE_PORT),
+    };
+    const shared = {
+      expoSdk,
+      vars,
+      useReactotron: answers.useReactotron,
+      stateManagement: answers.stateManagement,
+      pm,
+    };
+
+    await buildExpoSuperappApp({
+      ...shared,
+      role: 'host',
+      appName: answers.projectName,
+      appSlug: 'host',
+      destDir: hostDir,
+      label: `${hostSlug} (host)`,
+    });
+    await buildExpoSuperappApp({
+      ...shared,
+      role: 'remote',
+      appName: `${answers.projectName} Mini App`,
+      appSlug: remoteName,
+      destDir: remoteDir,
+      label: `${remoteSlug} (sub-app)`,
+    });
+
+    await warnIfXcodeTooOldForExpo(expoSdk);
+
+    await finish(superappProjects);
+    return;
+  }
 
   // runPrompts always sets both for superapp.
   const repackVersion = answers.repackVersion!;
@@ -198,7 +243,10 @@ async function main() {
     destDir: hostDir,
     pm,
     vars: sharedVars,
-    overlayDir: path.join(TEMPLATES_ROOT, 'superapp', 'host-overlay'),
+    overlayDirs: [
+      path.join(TEMPLATES_ROOT, 'superapp', 'host-common'),
+      path.join(TEMPLATES_ROOT, 'superapp', 'host-overlay'),
+    ],
     label: `${hostSlug} (host)`,
     useReactotron: answers.useReactotron,
     // NativeWind isn't supported for superapp yet (Re.Pack/Rspack, not Metro) —
@@ -214,7 +262,10 @@ async function main() {
     destDir: remoteDir,
     pm,
     vars: sharedVars,
-    overlayDir: path.join(TEMPLATES_ROOT, 'superapp', 'remote-overlay'),
+    overlayDirs: [
+      path.join(TEMPLATES_ROOT, 'superapp', 'remote-common'),
+      path.join(TEMPLATES_ROOT, 'superapp', 'remote-overlay'),
+    ],
     label: `${remoteSlug} (sub-app)`,
     useReactotron: answers.useReactotron,
     useNativewind: false,
@@ -222,10 +273,7 @@ async function main() {
     reactNativeVersion,
   });
 
-  await finish([
-    { dir: hostDir, label: hostSlug },
-    { dir: remoteDir, label: remoteSlug },
-  ]);
+  await finish(superappProjects);
 }
 
 main().catch(async err => {

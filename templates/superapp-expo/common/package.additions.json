@@ -1,0 +1,23 @@
+{
+  "scripts": {
+    "start": "react-native start",
+    "ios": "expo run:ios --no-bundler",
+    "android": "expo run:android --no-bundler"
+  },
+  "dependencies": {
+    "@callstack/repack": "5.4.2",
+    "@callstack/repack-expo": "0.0.1",
+    "@module-federation/enhanced": "2.9.2",
+    "@module-federation/runtime": "2.9.2",
+    "expo-asset": "~{{expoSdk}}.0.0",
+    "expo-constants": "~{{expoSdk}}.0.0",
+    "expo-font": "~{{expoSdk}}.0.0"
+  },
+  "devDependencies": {
+    "@rspack/core": "1.6.0",
+    "@react-native-community/cli": "20.2.0",
+    "@react-native-community/cli-platform-android": "20.2.0",
+    "@react-native-community/cli-platform-ios": "20.2.0",
+    "babel-preset-expo": "~{{expoSdk}}.0.0"
+  }
+}

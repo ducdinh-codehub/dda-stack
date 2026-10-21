@@ -21,6 +21,7 @@ Answer a few questions and your app is ready. Works with npm, yarn, pnpm and bun
 | **Expo** | Starting fast. Pick Expo Router (file-based) or React Navigation |
 | **React Native CLI** | Full native control |
 | **Superapp** | A host app that loads sub-apps (Re.Pack + Module Federation) |
+| **Expo Superapp** | The same superapp setup on Expo (SDK 56+) |
 
 ## What you get
 
@@ -48,7 +49,7 @@ npx create-dda-stack@latest my-app --stack expo --state zustand --pm pnpm --yes
 
 | Flag | Options |
 | --- | --- |
-| `--stack` | `expo`, `rn-cli`, `superapp` |
+| `--stack` | `expo`, `rn-cli`, `superapp`, `expo-superapp` |
 | `--state` | `none`, `zustand`, `redux-toolkit` |
 | `--pm` | `npm`, `yarn`, `pnpm`, `bun` |
 | `--router` | `expo-router`, `react-navigation` (Expo only) |
@@ -67,7 +68,7 @@ Run this inside your host app (or the folder that contains it):
 npx create-dda-stack@latest add-miniapp payments --title Payments --icon 💳
 ```
 
-This creates a new sub-app next to the host and adds a new bottom tab for it in the host. The sub-app uses the same React Native, Re.Pack, state library and package manager as the host, and gets the next free dev port.
+This creates a new sub-app next to the host and adds a new bottom tab for it in the host. The sub-app uses the same React Native (or Expo SDK), Re.Pack, state library and package manager as the host, and gets the next free dev port.
 
 Then start everything from the host, in one terminal:
 

@@ -50,15 +50,22 @@ export async function maybeInstallAndFinish(
   for (const project of projects) {
     lines.push(`cd ${path.basename(project.dir)}`);
     if (!installed) lines.push(`  ${formatRunCommand(pm, 'install')}`);
-    if (framework === 'expo') {
+    if (framework === 'expo-superapp') {
+      lines.push(
+        '  npx expo prebuild  # generates ios/ and android/, wired to Re.Pack — run once, and again after adding native deps',
+        `  ${formatRunCommand(pm, 'start')}  # Re.Pack dev server (replaces Metro / expo start) — keep it running`,
+      );
+    } else if (framework === 'expo') {
       lines.push('  npx expo prebuild  # generates native ios/ and android/ — run once before building natively');
     } else {
       lines.push(
         '  cd ios && bundle install && bundle exec pod install && cd ..  # run once, and again after adding native deps',
       );
     }
-    lines.push(`  ${formatRunCommand(pm, 'ios')}`);
-    lines.push(`  ${formatRunCommand(pm, 'android')}`);
+    // Expo superapp's ios/android scripts don't start a bundler (--no-bundler).
+    const note = framework === 'expo-superapp' ? '  # in another terminal' : '';
+    lines.push(`  ${formatRunCommand(pm, 'ios')}${note}`);
+    lines.push(`  ${formatRunCommand(pm, 'android')}${note}`);
   }
   if (projects.length > 1) {
     // Superapp: projects[0] is the host.

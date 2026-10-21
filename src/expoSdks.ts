@@ -22,11 +22,12 @@ const FALLBACK_SDKS: ExpoSdk[] = [
 ];
 
 /**
- * The `count` newest stable Expo SDKs, newest first — read from expo's
- * `sdk-NN` dist-tags, which only exist for released SDKs (previews live under
- * `next`/`canary`).
+ * The `count` newest stable Expo SDKs from `minSdk` on, newest first — read
+ * from expo's `sdk-NN` dist-tags, which only exist for released SDKs
+ * (previews live under `next`/`canary`).
  */
-export async function listRecentExpoSdks(count = 4): Promise<ExpoSdk[]> {
+export async function listRecentExpoSdks(count = 4, minSdk = MIN_EXPO_SDK): Promise<ExpoSdk[]> {
+  const fallback = FALLBACK_SDKS.filter(({ sdk }) => sdk >= minSdk);
   try {
     const { stdout } = await execa('npm', ['view', 'expo', 'dist-tags', '--json'], { timeout: 15_000 });
     const tags: Record<string, string> = JSON.parse(stdout);
@@ -34,16 +35,16 @@ export async function listRecentExpoSdks(count = 4): Promise<ExpoSdk[]> {
       .map(tag => /^sdk-(\d+)$/.exec(tag)?.[1])
       .filter((sdk): sdk is string => sdk !== undefined)
       .map(Number)
-      .filter(sdk => sdk >= MIN_EXPO_SDK)
+      .filter(sdk => sdk >= minSdk)
       .sort((a, b) => b - a)
       .slice(0, count);
-    if (sdks.length === 0) return FALLBACK_SDKS;
+    if (sdks.length === 0) return fallback;
 
     return await Promise.all(
       sdks.map(async sdk => ({ sdk, reactNative: await templateReactNative(sdk) })),
     );
   } catch {
-    return FALLBACK_SDKS;
+    return fallback;
   }
 }
 

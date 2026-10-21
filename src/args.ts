@@ -24,7 +24,7 @@ export interface CliOptions {
   yes: boolean;
 }
 
-const FRAMEWORKS: Framework[] = ['rn-cli', 'expo', 'superapp'];
+const FRAMEWORKS: Framework[] = ['rn-cli', 'expo', 'superapp', 'expo-superapp'];
 const PACKAGE_MANAGERS: PackageManager[] = ['npm', 'yarn', 'pnpm', 'bun'];
 const STATE_MANAGEMENTS: StateManagement[] = ['none', 'zustand', 'redux-toolkit'];
 const EXPO_ROUTERS: ExpoRouter[] = ['expo-router', 'react-navigation'];
@@ -33,12 +33,12 @@ const HELP = `Usage: create-dda-stack [project-name] [options]
        create-dda-stack add-miniapp [name] [options]   (see add-miniapp --help)
 
 Options:
-  --stack <stack>        rn-cli | expo | superapp
+  --stack <stack>        rn-cli | expo | superapp | expo-superapp
   --pm <pm>              npm | yarn | pnpm | bun
   --state <lib>          none | zustand | redux-toolkit
   --router <router>      expo-router | react-navigation (expo only)
   --rn <version>         React Native version (rn-cli only), e.g. 0.87.1
-  --expo-sdk <number>    Expo SDK (expo only), e.g. 57
+  --expo-sdk <number>    Expo SDK (expo and expo-superapp), e.g. 57
   --repack <version>     Re.Pack version (superapp only), e.g. 5.4.0
   --[no-]reactotron      Add Reactotron
   --[no-]nativewind      Add NativeWind (rn-cli and expo only)
@@ -46,6 +46,10 @@ Options:
   -y, --yes              Use defaults for anything not passed instead of asking
   -h, --help             Show this help
   -v, --version          Show the version
+
+Stacks:
+  superapp               React Native CLI host + sub-app (Re.Pack + Module Federation)
+  expo-superapp          Expo host + sub-app (Re.Pack + Module Federation), Expo SDK 56+
 
 Example:
   npm create dda-stack@latest my-app -- --stack expo --state zustand --pm pnpm --yes`;
@@ -125,22 +129,23 @@ export function parseCliArgs(argv: string[]): CliOptions {
 
   // Each version flag only makes sense for one stack — reject rather than
   // silently ignore it, so a typo'd --stack doesn't produce a surprise project.
-  const stackOnly: Array<[string, unknown, Framework]> = [
-    ['rn', values.rn, 'rn-cli'],
-    ['expo-sdk', values['expo-sdk'], 'expo'],
-    ['repack', values.repack, 'superapp'],
-    ['router', values.router, 'expo'],
+  const stackOnly: Array<[string, unknown, Framework[]]> = [
+    ['rn', values.rn, ['rn-cli']],
+    ['expo-sdk', values['expo-sdk'], ['expo', 'expo-superapp']],
+    ['repack', values.repack, ['superapp']],
+    ['router', values.router, ['expo']],
   ];
   for (const [flag, value, only] of stackOnly) {
     if (value === undefined) continue;
-    if (!framework) throw new CliArgsError(`--${flag} needs --stack ${only}`);
-    if (framework !== only) throw new CliArgsError(`--${flag} only applies to --stack ${only}`);
+    const stacks = only.map(stack => `--stack ${stack}`).join(' or ');
+    if (!framework) throw new CliArgsError(`--${flag} needs ${stacks}`);
+    if (!only.includes(framework)) throw new CliArgsError(`--${flag} only applies to ${stacks}`);
   }
 
   const useNativewind = toggle('nativewind', values.nativewind, values['no-nativewind']);
-  if (useNativewind && framework === 'superapp') {
+  if (useNativewind && (framework === 'superapp' || framework === 'expo-superapp')) {
     // Re.Pack bundles with Rspack, not Metro, so NativeWind's Metro plugin can't apply.
-    throw new CliArgsError('--nativewind is not supported for --stack superapp');
+    throw new CliArgsError(`--nativewind is not supported for --stack ${framework}`);
   }
 
   const options: CliOptions = {

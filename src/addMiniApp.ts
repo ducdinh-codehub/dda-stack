@@ -19,6 +19,7 @@ import { MINIAPPS_FILE, nextFreePort, readMiniApps, writeMiniApps, type MiniApp 
 import { TEMPLATES_ROOT } from './scaffold.js';
 import { question, spinner } from './theme.js';
 import { reportError } from './errorReport.js';
+import { buildExpoSuperappApp } from './expoSuperapp.js';
 
 const PACKAGE_MANAGERS: PackageManager[] = ['npm', 'yarn', 'pnpm', 'bun'];
 
@@ -171,8 +172,8 @@ function detectHostPackageManager(hostDir: string): PackageManager {
 
 /**
  * The sub-app must match the host on everything shared through Module
- * Federation (React Native, Re.Pack, the state library), so read it all from
- * the host's package.json instead of asking.
+ * Federation (React Native or the Expo SDK, Re.Pack, the state library), so
+ * read it all from the host's package.json instead of asking.
  */
 function readHostSetup(hostDir: string) {
   const pkg = JSON.parse(fs.readFileSync(path.join(hostDir, 'package.json'), 'utf8'));
@@ -187,7 +188,16 @@ function readHostSetup(hostDir: string) {
     : deps['@reduxjs/toolkit']
       ? 'redux-toolkit'
       : 'none';
+
+  // An Expo superapp host (Re.Pack's Expo integration) gets an Expo sub-app on the same SDK.
+  let expoSdk: number | undefined;
+  if (deps['@callstack/repack-expo']) {
+    expoSdk = Number(/\d+/.exec(deps.expo ?? '')?.[0]);
+    if (!expoSdk) fail(`Couldn't read the Expo SDK version from ${path.basename(hostDir)}/package.json.`);
+  }
+
   return {
+    expoSdk,
     // Exact version, not a range — `react-native init --version` needs one.
     reactNativeVersion: reactNativeVersion.replace(/^[\^~]/, ''),
     repackVersion,
@@ -291,27 +301,43 @@ export async function runAddMiniApp(argv: string[]) {
   }
 
   const remoteLabel = path.basename(remoteDir);
-  await buildRnCliApp({
-    appName: `${name}_remote`,
-    destDir: remoteDir,
-    pm,
-    vars: {
-      projectName: title,
-      projectSlug,
-      remoteName: name,
-      remotePort: String(port),
-      repackVersion: host.repackVersion,
-    },
-    overlayDir: path.join(TEMPLATES_ROOT, 'superapp', 'remote-overlay'),
-    label: `${remoteLabel} (sub-app)`,
-    useReactotron: host.useReactotron,
-    useNativewind: false,
-    stateManagement: host.stateManagement,
-    reactNativeVersion: host.reactNativeVersion,
-  });
+  const vars = { projectName: title, projectSlug, remoteName: name, remotePort: String(port) };
+  if (host.expoSdk !== undefined) {
+    await buildExpoSuperappApp({
+      role: 'remote',
+      appName: title,
+      appSlug: slug,
+      destDir: remoteDir,
+      expoSdk: host.expoSdk,
+      vars,
+      label: `${remoteLabel} (sub-app)`,
+      useReactotron: host.useReactotron,
+      stateManagement: host.stateManagement,
+      pm,
+    });
+  } else {
+    await buildRnCliApp({
+      appName: `${name}_remote`,
+      destDir: remoteDir,
+      pm,
+      vars: { ...vars, repackVersion: host.repackVersion },
+      overlayDirs: [
+        path.join(TEMPLATES_ROOT, 'superapp', 'remote-common'),
+        path.join(TEMPLATES_ROOT, 'superapp', 'remote-overlay'),
+      ],
+      label: `${remoteLabel} (sub-app)`,
+      useReactotron: host.useReactotron,
+      useNativewind: false,
+      stateManagement: host.stateManagement,
+      reactNativeVersion: host.reactNativeVersion,
+    });
+  }
 
   // Only after the sub-app exists, so a failed scaffold leaves the host untouched.
-  writeMiniApps(hostDir, [...apps, { name, title, icon: opts.icon ?? '🧩', port, prodUrl: '' }]);
+  // An Expo host loads mini-apps by name at runtime, so it has no loaders to regenerate.
+  writeMiniApps(hostDir, [...apps, { name, title, icon: opts.icon ?? '🧩', port, prodUrl: '' }], {
+    syncLoaders: host.expoSdk === undefined,
+  });
   p.log.success(`Added a "${title}" tab to ${path.basename(hostDir)}`);
 
   const shouldInstall =

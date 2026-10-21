@@ -11,12 +11,13 @@ import {
 } from './reactNativeVersions.js';
 import { MIN_NATIVEWIND_REACT_NATIVE_MINOR, reactNativeMinor } from './reanimated.js';
 import { listRecentExpoSdks, MIN_EXPO_SDK } from './expoSdks.js';
+import { expoSuperappRepackVersions, MIN_EXPO_SUPERAPP_SDK } from './expoSuperapp.js';
 import { getXcodeToolchain, isXcodeTooOldForExpoSdk } from './xcode.js';
 import { cliVersion } from './version.js';
 import type { CliOptions } from './args.js';
 import pc from 'picocolors';
 
-export type Framework = 'rn-cli' | 'expo' | 'superapp';
+export type Framework = 'rn-cli' | 'expo' | 'superapp' | 'expo-superapp';
 
 export type StateManagement = 'none' | 'zustand' | 'redux-toolkit';
 
@@ -32,7 +33,7 @@ export interface AnswerSet {
   stateManagement: StateManagement;
   /** Superapp only: the exact @callstack/repack version both host and sub-app install. */
   repackVersion?: string;
-  /** Expo only: the SDK major version the project is created with, e.g. 57. */
+  /** Expo and Expo superapp: the SDK major version the project is created with, e.g. 57. */
   expoSdk?: number;
   /** Expo only: file-based routing (Expo Router) or a React Navigation navigator. */
   expoRouter?: ExpoRouter;
@@ -114,6 +115,11 @@ export async function runPrompts(opts: CliOptions): Promise<AnswerSet> {
                 label: 'Superapp (Module Federation)',
                 hint: 'creates a host app + a sub-app, wired with Re.Pack + Module Federation',
               },
+              {
+                value: 'expo-superapp',
+                label: 'Superapp with Expo (Module Federation)',
+                hint: `the same, as Expo apps (SDK ${MIN_EXPO_SUPERAPP_SDK}+) bundled by Re.Pack instead of Metro`,
+              },
             ],
           }),
         ));
@@ -132,7 +138,20 @@ export async function runPrompts(opts: CliOptions): Promise<AnswerSet> {
     reactNativeVersion = await resolveReactNativeVersion(opts);
   }
 
-  const expoSdk = framework === 'expo' ? await resolveExpoSdk(opts) : undefined;
+  let expoSdk: number | undefined;
+  if (framework === 'expo') {
+    expoSdk = await resolveExpoSdk(opts, MIN_EXPO_SDK);
+  } else if (framework === 'expo-superapp') {
+    const { repack, repackExpo } = expoSuperappRepackVersions();
+    p.log.info(
+      `Expo superapp uses Re.Pack ${repack} with @callstack/repack-expo ${repackExpo} — ` +
+        "Re.Pack's Expo integration is in alpha, so expect rough edges.",
+    );
+    expoSdk = await resolveExpoSdk(opts, MIN_EXPO_SUPERAPP_SDK);
+    p.log.info(
+      'Need more sub-apps later? Run `npx create-dda-stack add-miniapp <name>` in the host — each one gets its own bottom tab.',
+    );
+  }
 
   const expoRouter: ExpoRouter | undefined =
     framework !== 'expo'
@@ -197,7 +216,7 @@ export async function runPrompts(opts: CliOptions): Promise<AnswerSet> {
           }),
         ));
 
-  // Not supported yet for superapp: it bundles via Re.Pack/Rspack, not Metro, so
+  // Not supported yet for either superapp: they bundle via Re.Pack/Rspack, not Metro, so
   // NativeWind's Metro plugin doesn't apply there — don't ask a question whose
   // answer would just be silently ignored. (args.ts rejects --nativewind there.)
   // Also skipped for bare RN older than 0.78: NativeWind's Babel preset needs
@@ -212,7 +231,7 @@ export async function runPrompts(opts: CliOptions): Promise<AnswerSet> {
     }
     p.log.info(`NativeWind needs React Native 0.${MIN_NATIVEWIND_REACT_NATIVE_MINOR} or newer — skipping it.`);
   }
-  if (framework !== 'superapp' && !nativewindTooOld) {
+  if (framework !== 'superapp' && framework !== 'expo-superapp' && !nativewindTooOld) {
     useNativewind =
       opts.useNativewind ??
       (opts.yes
@@ -285,9 +304,9 @@ async function resolveRepack(opts: CliOptions): Promise<{ repackVersion: string;
   return { repackVersion: picked.version, reactNativeVersion: picked.reactNativeVersion };
 }
 
-async function resolveExpoSdk(opts: CliOptions): Promise<number> {
+async function resolveExpoSdk(opts: CliOptions, minSdk: number): Promise<number> {
   if (opts.expoSdk !== undefined) {
-    if (opts.expoSdk < MIN_EXPO_SDK) invalidFlag(`--expo-sdk must be ${MIN_EXPO_SDK} or newer`);
+    if (opts.expoSdk < minSdk) invalidFlag(`--expo-sdk must be ${minSdk} or newer for this stack`);
     // No Xcode confirmation here: the flag is an explicit choice, and index.ts
     // still warns after scaffolding if this Xcode can't build it.
     return opts.expoSdk;
@@ -295,7 +314,7 @@ async function resolveExpoSdk(opts: CliOptions): Promise<number> {
 
   const s = spinner();
   s.start('Checking Expo SDK versions');
-  const [sdks, toolchain] = await Promise.all([listRecentExpoSdks(), getXcodeToolchain()]);
+  const [sdks, toolchain] = await Promise.all([listRecentExpoSdks(4, minSdk), getXcodeToolchain()]);
   s.stop('Checked Expo SDK versions');
 
   if (opts.yes) return sdks[0].sdk;

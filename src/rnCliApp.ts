@@ -34,7 +34,8 @@ export async function buildRnCliApp(opts: {
   destDir: string;
   pm: PackageManager;
   vars: TemplateVars;
-  overlayDir: string;
+  /** Applied in order, after the common template. */
+  overlayDirs: string[];
   label: string;
   useReactotron: boolean;
   useNativewind: boolean;
@@ -49,7 +50,9 @@ export async function buildRnCliApp(opts: {
   s.stop(`Native project generated for ${opts.label}`);
 
   overlayTemplate(path.join(TEMPLATES_ROOT, 'common'), opts.destDir, opts.vars);
-  overlayTemplate(opts.overlayDir, opts.destDir, opts.vars);
+  for (const overlayDir of opts.overlayDirs) {
+    overlayTemplate(overlayDir, opts.destDir, opts.vars);
+  }
   if (opts.useReactotron) {
     overlayTemplate(path.join(TEMPLATES_ROOT, 'reactotron', 'overlay'), opts.destDir, opts.vars);
   }

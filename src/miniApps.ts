@@ -4,9 +4,11 @@ import path from 'node:path';
 /**
  * A superapp host lists its sub-apps in miniapps.json. rspack.config.mjs reads
  * it for `remotes` and RootNavigator reads it for the bottom tabs, so adding a
- * mini-app is one new entry there — plus regenerating the two files below,
- * which can't be derived at runtime: Module Federation only resolves static
- * `import('name/Module')` calls, and TypeScript needs a `declare module` per name.
+ * mini-app is one new entry there. A React Native CLI host also needs the two
+ * files below regenerated, which can't be derived at runtime: Module
+ * Federation only resolves static `import('name/Module')` calls, and
+ * TypeScript needs a `declare module` per name. An Expo host loads mini-apps
+ * with loadRemote('name/Module') instead, so it needs neither.
  */
 export interface MiniApp {
   /** MF container name — a JS identifier, also the tab's route name. */
@@ -30,10 +32,10 @@ export function nextFreePort(apps: MiniApp[]): number {
   return Math.max(FIRST_REMOTE_PORT - 1, ...apps.map(app => app.port)) + 1;
 }
 
-/** Writes miniapps.json and regenerates the files derived from it. */
-export function writeMiniApps(hostDir: string, apps: MiniApp[]) {
+/** Writes miniapps.json and, for a React Native CLI host, regenerates the files derived from it. */
+export function writeMiniApps(hostDir: string, apps: MiniApp[], opts: { syncLoaders: boolean }) {
   fs.writeFileSync(path.join(hostDir, MINIAPPS_FILE), JSON.stringify(apps, null, 2) + '\n');
-  syncMiniAppFiles(hostDir, apps);
+  if (opts.syncLoaders) syncMiniAppFiles(hostDir, apps);
 }
 
 export function syncMiniAppFiles(hostDir: string, apps: MiniApp[]) {

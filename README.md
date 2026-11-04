@@ -9,7 +9,7 @@ Build a React Native **superapp** in one command: a host app that loads mini-app
 Setting up Module Federation in React Native by hand is slow and easy to get wrong. This does it for you, on React Native CLI or Expo. Regular Expo and React Native CLI apps are supported too.
 
 <p align="center">
-  <img src="https://cdn.jsdelivr.net/npm/create-dda-stack@latest/assets/superapp-demo.gif" alt="A superapp host on iPhone switching between its Home tab and two mini-apps, Shop and Payments, each loaded at runtime from its own dev server" width="320">
+  <img src="assets/superapp-demo.gif" alt="A superapp host on iPhone switching between its Home tab and two mini-apps, Shop and Payments, each loaded at runtime from its own dev server" width="320">
 </p>
 
 ## Quick start

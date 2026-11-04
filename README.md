@@ -4,24 +4,54 @@
 
 # create-dda-stack
 
-Create a ready-to-code React Native app in one command.
+Build a React Native **superapp** in one command: a host app that loads mini-apps over the network, with Re.Pack and Module Federation already set up.
+
+Setting up Module Federation in React Native by hand is slow and easy to get wrong. This does it for you, on React Native CLI or Expo. Regular Expo and React Native CLI apps are supported too.
+
+<p align="center">
+  <img src="assets/superapp-demo.gif" alt="A superapp host on iPhone switching between its Home tab and two mini-apps, Shop and Payments, each loaded at runtime from its own dev server" width="320">
+</p>
 
 ## Quick start
 
 ```bash
-npx create-dda-stack@latest
+npx create-dda-stack@latest my-app --stack superapp
 ```
 
-Answer a few questions and your app is ready. Works with npm, yarn, pnpm and bun.
+Use `--stack expo-superapp` for the same setup on Expo (SDK 56+), or leave out `--stack` and pick from a list. Works with npm, yarn, pnpm and bun.
+
+## Build a superapp
+
+The superapp stacks create two folders next to each other:
+
+| Folder | What it is |
+| --- | --- |
+| `my-app-host` | The host app. It has a bottom tab for each mini-app and loads it at runtime |
+| `my-app-remote` | Your first mini-app. It's a separate project with its own dev server |
+
+Build the host once with the steps the CLI prints at the end. Then start every dev server from the host, in one terminal:
+
+```bash
+cd my-app-host
+npm run dev:all
+```
+
+Then add as many mini-apps as you need. Each one gets its own tab in the host:
+
+```bash
+npx create-dda-stack@latest add-miniapp payments --title Payments --icon 💳
+```
+
+See [Add a mini-app to a superapp](#add-a-mini-app-to-a-superapp) for details.
 
 ## Pick a stack
 
 | Stack | Best for |
 | --- | --- |
-| **Expo** | Starting fast. Pick Expo Router (file-based) or React Navigation |
-| **React Native CLI** | Full native control |
-| **Superapp** | A host app that loads sub-apps (Re.Pack + Module Federation) |
+| **Superapp** | A host app that loads mini-apps (Re.Pack + Module Federation) |
 | **Expo Superapp** | The same superapp setup on Expo (SDK 56+) |
+| **Expo** | A single app, started fast. Pick Expo Router (file-based) or React Navigation |
+| **React Native CLI** | A single app with full native control |
 
 ## What you get
 
@@ -49,7 +79,7 @@ npx create-dda-stack@latest my-app --stack expo --state zustand --pm pnpm --yes
 
 | Flag | Options |
 | --- | --- |
-| `--stack` | `expo`, `rn-cli`, `superapp`, `expo-superapp` |
+| `--stack` | `superapp`, `expo-superapp`, `expo`, `rn-cli` |
 | `--state` | `none`, `zustand`, `redux-toolkit` |
 | `--pm` | `npm`, `yarn`, `pnpm`, `bun` |
 | `--router` | `expo-router`, `react-navigation` (Expo only) |

@@ -6,6 +6,7 @@ import { approvePnpmBuilds, type PackageManager } from './packageManager.js';
 import { overlayTemplate, TEMPLATES_ROOT, type TemplateVars } from './scaffold.js';
 import { initExpo } from './nativeInit.js';
 import { alignWithExpoSdk } from './expoDeps.js';
+import { addKeychain } from './keychain.js';
 
 /**
  * Oldest Expo SDK the Expo superapp supports: @callstack/repack-expo (Re.Pack's
@@ -78,6 +79,10 @@ export async function buildExpoSuperappApp(opts: {
   label: string;
   useReactotron: boolean;
   stateManagement: StateManagement;
+  /** Non-empty adds react-native-keychain and a secure storage helper with these keys. */
+  keychainKeys: string[];
+  /** Starting values for some of `keychainKeys`, written to .env. */
+  keychainValues: Record<string, string>;
   pm: PackageManager;
 }) {
   // No spinner: create-expo-app may show its own prompt — see initExpo().
@@ -96,6 +101,7 @@ export async function buildExpoSuperappApp(opts: {
     ...(opts.stateManagement !== 'none' ? [path.join(TEMPLATES_ROOT, 'state', opts.stateManagement)] : []),
   ];
   for (const overlay of overlays) overlayTemplate(overlay, opts.destDir, vars);
+  if (opts.keychainKeys.length > 0) addKeychain(opts.destDir, opts.keychainKeys, opts.keychainValues, vars);
 
   configureAppJson(opts.destDir, { projectSlug: opts.vars.projectSlug, appSlug: opts.appSlug });
 

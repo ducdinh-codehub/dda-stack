@@ -2,6 +2,7 @@ import { parseArgs } from 'node:util';
 import type { PackageManager } from './packageManager.js';
 import type { ExpoRouter, Framework, StateManagement } from './prompts.js';
 import { cliVersion } from './version.js';
+import { parseKeychainKeys, parseKeychainValues } from './keychain.js';
 
 /**
  * Everything the interactive prompts ask for can also be passed as a flag, so
@@ -20,6 +21,10 @@ export interface CliOptions {
   repackVersion?: string;
   useReactotron?: boolean;
   useNativewind?: boolean;
+  useKeychain?: boolean;
+  keychainKeys?: string[];
+  /** From --keychain-value key=value; checked against the keys in prompts.ts. */
+  keychainValues?: Record<string, string>;
   install?: boolean;
   yes: boolean;
 }
@@ -42,6 +47,10 @@ Options:
   --repack <version>     Re.Pack version (superapp only), e.g. 5.4.0
   --[no-]reactotron      Add Reactotron
   --[no-]nativewind      Add NativeWind (rn-cli and expo only)
+  --[no-]keychain        Add react-native-keychain with a typed secure storage helper
+  --keychain-keys <list> Comma-separated keys for it, e.g. auth_token,refresh_token
+  --keychain-value <k=v> Starting value for a key, saved to .env (repeatable).
+                         Ends up in the JS bundle and your shell history — dev/test only
   --[no-]install         Install dependencies after scaffolding
   -y, --yes              Use defaults for anything not passed instead of asking
   -h, --help             Show this help
@@ -93,6 +102,10 @@ export function parseCliArgs(argv: string[]): CliOptions {
         'no-reactotron': { type: 'boolean' },
         nativewind: { type: 'boolean' },
         'no-nativewind': { type: 'boolean' },
+        keychain: { type: 'boolean' },
+        'no-keychain': { type: 'boolean' },
+        'keychain-keys': { type: 'string' },
+        'keychain-value': { type: 'string', multiple: true },
         install: { type: 'boolean' },
         'no-install': { type: 'boolean' },
         yes: { type: 'boolean', short: 'y' },
@@ -148,6 +161,25 @@ export function parseCliArgs(argv: string[]): CliOptions {
     throw new CliArgsError(`--nativewind is not supported for --stack ${framework}`);
   }
 
+  let useKeychain = toggle('keychain', values.keychain, values['no-keychain']);
+  let keychainKeys: string[] | undefined;
+  if (values['keychain-keys'] !== undefined) {
+    if (useKeychain === false) throw new CliArgsError("--keychain-keys can't be used with --no-keychain");
+    const parsed = parseKeychainKeys(values['keychain-keys']);
+    if ('error' in parsed) throw new CliArgsError(`--keychain-keys: ${parsed.error}`);
+    keychainKeys = parsed.keys;
+    // Passing keys is asking for the keychain.
+    useKeychain = true;
+  }
+  let keychainValues: Record<string, string> | undefined;
+  if (values['keychain-value'] !== undefined) {
+    if (useKeychain === false) throw new CliArgsError("--keychain-value can't be used with --no-keychain");
+    const parsed = parseKeychainValues(values['keychain-value']);
+    if ('error' in parsed) throw new CliArgsError(`--keychain-value: ${parsed.error}`);
+    keychainValues = parsed.values;
+    useKeychain = true;
+  }
+
   const options: CliOptions = {
     projectName: positionals[0],
     framework,
@@ -159,6 +191,9 @@ export function parseCliArgs(argv: string[]): CliOptions {
     repackVersion: values.repack,
     useReactotron: toggle('reactotron', values.reactotron, values['no-reactotron']),
     useNativewind,
+    useKeychain,
+    keychainKeys,
+    keychainValues,
     install: toggle('install', values.install, values['no-install']),
     yes: values.yes ?? false,
   };

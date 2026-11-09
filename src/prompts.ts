@@ -14,6 +14,7 @@ import { listRecentExpoSdks, MIN_EXPO_SDK } from './expoSdks.js';
 import { expoSuperappRepackVersions, MIN_EXPO_SUPERAPP_SDK } from './expoSuperapp.js';
 import { getXcodeToolchain, isXcodeTooOldForExpoSdk } from './xcode.js';
 import { cliVersion } from './version.js';
+import { DEFAULT_KEYCHAIN_KEYS, keychainKeyProblem, keychainValueProblem } from './keychain.js';
 import type { CliOptions } from './args.js';
 import pc from 'picocolors';
 
@@ -30,6 +31,10 @@ export interface AnswerSet {
   packageManager: PackageManager;
   useReactotron: boolean;
   useNativewind: boolean;
+  /** Keys for the generated secure storage helper; empty when react-native-keychain isn't added. */
+  keychainKeys: string[];
+  /** Starting values for some of `keychainKeys`, written to .env. Never put in error reports. */
+  keychainValues: Record<string, string>;
   stateManagement: StateManagement;
   /** Superapp only: the exact @callstack/repack version both host and sub-app install. */
   repackVersion?: string;
@@ -244,6 +249,8 @@ export async function runPrompts(opts: CliOptions): Promise<AnswerSet> {
           ));
   }
 
+  const { keys: keychainKeys, values: keychainValues } = await resolveKeychain(opts);
+
   return {
     projectName,
     projectSlug: toSlug(projectName),
@@ -251,12 +258,95 @@ export async function runPrompts(opts: CliOptions): Promise<AnswerSet> {
     packageManager,
     useReactotron,
     useNativewind,
+    keychainKeys,
+    keychainValues,
     stateManagement,
     expoSdk,
     expoRouter,
     repackVersion,
     reactNativeVersion,
   };
+}
+
+interface KeychainSetup {
+  keys: string[];
+  values: Record<string, string>;
+}
+
+async function resolveKeychain(opts: CliOptions): Promise<KeychainSetup> {
+  const none: KeychainSetup = { keys: [], values: {} };
+
+  // Flags: --keychain-keys sets the keys, --keychain-value fills some of them in.
+  if (opts.keychainKeys || opts.keychainValues || (opts.yes && opts.useKeychain)) {
+    const keys = opts.keychainKeys ?? DEFAULT_KEYCHAIN_KEYS;
+    const values = opts.keychainValues ?? {};
+    const unknown = Object.keys(values).find(key => !keys.includes(key));
+    if (unknown) invalidFlag(`--keychain-value: "${unknown}" isn't one of the keys (${keys.join(', ')})`);
+    return { keys, values };
+  }
+
+  const useKeychain =
+    opts.useKeychain ??
+    (opts.yes
+      ? false
+      : answered(
+          await p.confirm({
+            message: question(
+              'Add react-native-keychain? (Stores tokens and secrets in the iOS Keychain / Android Keystore.)',
+            ),
+            initialValue: false,
+          }),
+        ));
+  if (!useKeychain) return none;
+
+  const when = answered(
+    await p.select<'later' | 'now'>({
+      message: question('Declare your keys and values now, or later?'),
+      initialValue: 'now',
+      options: [
+        { value: 'now', label: 'Now', hint: 'type each key name, then paste its value' },
+        {
+          value: 'later',
+          label: 'Later',
+          hint: `starts with ${DEFAULT_KEYCHAIN_KEYS.join(' and ')} — edit SECURE_KEYS in src/storage/secureStorage.ts`,
+        },
+      ],
+    }),
+  );
+  if (when === 'later') return { keys: DEFAULT_KEYCHAIN_KEYS, values: {} };
+
+  p.log.warn(
+    'Values you enter here go into .env and are inlined into the JS bundle, so anyone with the app ' +
+      'can read them. Use dev/test values, and save real secrets at runtime with setSecureItem.',
+  );
+  const setup: KeychainSetup = { keys: [], values: {} };
+  for (;;) {
+    const key = answered(
+      await p.text({
+        message: question(setup.keys.length === 0 ? 'Key name?' : 'Next key name?'),
+        placeholder: setup.keys.length === 0 ? 'auth_token' : undefined,
+        validate: value => keychainKeyProblem(value?.trim() ?? '', setup.keys),
+      }),
+    ).trim();
+
+    const value = answered(
+      await p.password({
+        message: question(`Value for ${key}? (paste it in, or leave empty to set it later)`),
+        validate: keychainValueProblem,
+      }),
+    );
+    setup.keys.push(key);
+    if (value) setup.values[key] = value;
+
+    const more = answered(
+      await p.confirm({ message: question('Add another key?'), initialValue: false }),
+    );
+    if (!more) break;
+  }
+
+  const summary = setup.keys.map(key => `${key}${setup.values[key] ? ' (value set)' : ' (no value yet)'}`);
+  p.log.info(`Keychain keys: ${summary.join(', ')}`);
+  return setup;
 }
 
 async function resolveRepack(opts: CliOptions): Promise<{ repackVersion: string; reactNativeVersion: string }> {

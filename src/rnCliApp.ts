@@ -7,6 +7,7 @@ import { overlayTemplate, TEMPLATES_ROOT, type TemplateVars } from './scaffold.j
 import { initReactNativeCli } from './nativeInit.js';
 import { spinner } from './theme.js';
 import { addReanimatedForReactNative } from './reanimated.js';
+import { addKeychain } from './keychain.js';
 
 /**
  * NativeWind needs reanimated + worklets, whose versions depend on the
@@ -40,6 +41,10 @@ export async function buildRnCliApp(opts: {
   useReactotron: boolean;
   useNativewind: boolean;
   stateManagement: StateManagement;
+  /** Non-empty adds react-native-keychain and a secure storage helper with these keys. */
+  keychainKeys: string[];
+  /** Starting values for some of `keychainKeys`, written to .env. */
+  keychainValues: Record<string, string>;
   reactNativeVersion?: string;
 }) {
   // Spinner is safe here: the generator's own output is captured, not streamed,
@@ -62,5 +67,8 @@ export async function buildRnCliApp(opts: {
   }
   if (opts.stateManagement !== 'none') {
     overlayTemplate(path.join(TEMPLATES_ROOT, 'state', opts.stateManagement), opts.destDir, opts.vars);
+  }
+  if (opts.keychainKeys.length > 0) {
+    addKeychain(opts.destDir, opts.keychainKeys, opts.keychainValues, opts.vars);
   }
 }

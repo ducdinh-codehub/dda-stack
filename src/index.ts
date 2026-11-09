@@ -15,6 +15,7 @@ import { alignWithExpoSdk } from './expoDeps.js';
 import { finishExpoRouterSetup } from './expoRouter.js';
 import { getXcodeToolchain, isXcodeTooOldForExpoSdk } from './xcode.js';
 import { reportError, setReportAnswers, throwIfForcedError } from './errorReport.js';
+import { addKeychain } from './keychain.js';
 
 /**
  * Expo SDK 56+ doesn't compile for iOS with Xcode 26.0.x (Swift 6.2) — see
@@ -38,6 +39,9 @@ async function buildExpoApp(opts: {
   useReactotron: boolean;
   useNativewind: boolean;
   stateManagement: StateManagement;
+  keychainKeys: string[];
+  /** Starting values for some of `keychainKeys`, written to .env. */
+  keychainValues: Record<string, string>;
   expoRouter: ExpoRouter;
   pm: PackageManager;
 }) {
@@ -69,6 +73,9 @@ async function buildExpoApp(opts: {
   }
   if (opts.stateManagement !== 'none') {
     overlayTemplate(path.join(TEMPLATES_ROOT, 'state', opts.stateManagement), opts.destDir, opts.vars);
+  }
+  if (opts.keychainKeys.length > 0) {
+    addKeychain(opts.destDir, opts.keychainKeys, opts.keychainValues, opts.vars);
   }
   if (useExpoRouter) {
     finishExpoRouterSetup(opts.destDir, {
@@ -139,6 +146,8 @@ async function main() {
       useReactotron: answers.useReactotron,
       useNativewind: answers.useNativewind,
       stateManagement: answers.stateManagement,
+      keychainKeys: answers.keychainKeys,
+    keychainValues: answers.keychainValues,
       // runPrompts always sets it for expo.
       expoRouter: answers.expoRouter!,
       pm,
@@ -165,6 +174,8 @@ async function main() {
       useReactotron: answers.useReactotron,
       useNativewind: answers.useNativewind,
       stateManagement: answers.stateManagement,
+      keychainKeys: answers.keychainKeys,
+    keychainValues: answers.keychainValues,
     });
 
     await finish([{ dir: destDir, label: answers.projectSlug }]);
@@ -200,6 +211,8 @@ async function main() {
       vars,
       useReactotron: answers.useReactotron,
       stateManagement: answers.stateManagement,
+      keychainKeys: answers.keychainKeys,
+    keychainValues: answers.keychainValues,
       pm,
     };
 
@@ -253,6 +266,8 @@ async function main() {
     // prompts.ts never asks in this case, so this is always false here.
     useNativewind: false,
     stateManagement: answers.stateManagement,
+    keychainKeys: answers.keychainKeys,
+    keychainValues: answers.keychainValues,
     reactNativeVersion,
   });
   syncMiniAppFiles(hostDir, readMiniApps(hostDir));
@@ -270,6 +285,8 @@ async function main() {
     useReactotron: answers.useReactotron,
     useNativewind: false,
     stateManagement: answers.stateManagement,
+    keychainKeys: answers.keychainKeys,
+    keychainValues: answers.keychainValues,
     reactNativeVersion,
   });
 

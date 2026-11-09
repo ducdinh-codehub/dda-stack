@@ -53,6 +53,7 @@ function formatOptions(a: AnswerSet): string {
   if (a.repackVersion) flags.push(`--repack ${a.repackVersion}`);
   if (a.useNativewind) flags.push('--nativewind');
   if (a.useReactotron) flags.push('--reactotron');
+  if (a.keychainKeys.length > 0) flags.push(`--keychain-keys ${a.keychainKeys.join(',')}`);
   return flags.join(' ');
 }
 

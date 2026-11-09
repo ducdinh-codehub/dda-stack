@@ -31,6 +31,8 @@ function getSharedDependencies() {
     // loaded with a sub-app would throw "Tried to register two views with
     // the same name RNCSafeAreaView".
     'react-native-safe-area-context',
+    // Optional secure storage — one copy, so host and sub-apps share the keychain module.
+    'react-native-keychain',
     // Optional state management — only shared if chosen at scaffold time.
     'zustand',
     '@reduxjs/toolkit',

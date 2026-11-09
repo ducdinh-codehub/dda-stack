@@ -68,6 +68,7 @@ You can also add:
 - **State management**: Zustand or Redux Toolkit
 - **NativeWind**: Tailwind CSS for React Native
 - **Reactotron**: a desktop debugger
+- **Secure storage**: [react-native-keychain](https://github.com/oblador/react-native-keychain) with a typed helper (`setSecureItem` / `getSecureItem`). Choose **Now** to type each key name and paste its value in the CLI, or **Later** to start with `auth_token` and `refresh_token` and edit them yourself. Values entered in the CLI go into the git-ignored `.env` and are copied to the keychain on first launch. They're inlined into the JS bundle, so use dev/test values there, and save real secrets at runtime with `setSecureItem`. If you include `auth_token`, the Axios client reads its token from the keychain.
 
 ## Skip the questions
 
@@ -85,6 +86,9 @@ npx create-dda-stack@latest my-app --stack expo --state zustand --pm pnpm --yes
 | `--router` | `expo-router`, `react-navigation` (Expo only) |
 | `--nativewind` | Add NativeWind |
 | `--reactotron` | Add Reactotron |
+| `--keychain` | Add react-native-keychain (keys: `auth_token`, `refresh_token`) |
+| `--keychain-keys` | Pick your own keys, e.g. `auth_token,api_key` |
+| `--keychain-value` | Set a key's value now, e.g. `auth_token=dev-token` (repeat for more keys) |
 | `--no-install` | Skip installing dependencies |
 | `--yes` | Use defaults for anything not set |
 

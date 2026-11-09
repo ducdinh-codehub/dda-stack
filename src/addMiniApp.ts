@@ -20,6 +20,7 @@ import { TEMPLATES_ROOT } from './scaffold.js';
 import { question, spinner } from './theme.js';
 import { reportError } from './errorReport.js';
 import { buildExpoSuperappApp } from './expoSuperapp.js';
+import { DEFAULT_KEYCHAIN_KEYS, readKeychainKeys } from './keychain.js';
 
 const PACKAGE_MANAGERS: PackageManager[] = ['npm', 'yarn', 'pnpm', 'bun'];
 
@@ -203,6 +204,9 @@ function readHostSetup(hostDir: string) {
     repackVersion,
     stateManagement,
     useReactotron: Boolean(deps['reactotron-react-native']),
+    // Same keys as the host, so the sub-app reads the tokens the host saved. The host's
+    // .env values aren't copied: inside the host, its own copy saves them on launch.
+    keychainKeys: deps['react-native-keychain'] ? (readKeychainKeys(hostDir) ?? DEFAULT_KEYCHAIN_KEYS) : [],
   };
 }
 
@@ -313,6 +317,8 @@ export async function runAddMiniApp(argv: string[]) {
       label: `${remoteLabel} (sub-app)`,
       useReactotron: host.useReactotron,
       stateManagement: host.stateManagement,
+      keychainKeys: host.keychainKeys,
+      keychainValues: {},
       pm,
     });
   } else {
@@ -329,6 +335,8 @@ export async function runAddMiniApp(argv: string[]) {
       useReactotron: host.useReactotron,
       useNativewind: false,
       stateManagement: host.stateManagement,
+      keychainKeys: host.keychainKeys,
+      keychainValues: {},
       reactNativeVersion: host.reactNativeVersion,
     });
   }

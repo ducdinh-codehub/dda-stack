@@ -1,6 +1,6 @@
 {
   "name": "create-dda-stack",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "Create a React Native superapp (host + mini-apps) with Re.Pack and Module Federation in one command. Also creates regular Expo and React Native CLI apps with navigation, React Query, Axios, env config and optional Zustand or Redux Toolkit.",
   "type": "module",
   "license": "MIT",

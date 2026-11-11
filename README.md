@@ -44,6 +44,31 @@ npx create-dda-stack@latest add-miniapp payments --title Payments --icon 💳
 
 See [Add a mini-app to a superapp](#add-a-mini-app-to-a-superapp) for details.
 
+## Secure storage with Keychain
+
+> **New in 0.6.2.** Works on every stack.
+
+Keep tokens and other secrets in the iOS Keychain / Android Keystore with [react-native-keychain](https://github.com/oblador/react-native-keychain). Say yes when the CLI asks about secure storage, or pass `--keychain`:
+
+```bash
+npx create-dda-stack@latest my-app --stack superapp --keychain
+```
+
+You get a typed helper in `src/storage/secureStorage.ts`:
+
+```ts
+import { setSecureItem, getSecureItem, clearSecureItems } from './storage/secureStorage';
+
+await setSecureItem('auth_token', token);
+const token = await getSecureItem('auth_token'); // string | null
+await clearSecureItems(); // e.g. on sign-out
+```
+
+- **Pick your keys**: choose **Now** to type each key name and paste its value in the CLI, or **Later** to start with `auth_token` and `refresh_token` and edit them yourself. With flags, use `--keychain-keys` and `--keychain-value`.
+- **Starting values**: values entered in the CLI go into the git-ignored `.env` and are copied to the keychain on first launch. They're inlined into the JS bundle, so use dev/test values there, and save real secrets at runtime with `setSecureItem`.
+- **Axios**: if you include `auth_token`, the Axios client reads its token from the keychain.
+- **Superapps**: the host and its mini-apps share the same keychain entries.
+
 ## Pick a stack
 
 | Stack | Best for |
@@ -68,7 +93,7 @@ You can also add:
 - **State management**: Zustand or Redux Toolkit
 - **NativeWind**: Tailwind CSS for React Native
 - **Reactotron**: a desktop debugger
-- **Secure storage**: [react-native-keychain](https://github.com/oblador/react-native-keychain) with a typed helper (`setSecureItem` / `getSecureItem`). Choose **Now** to type each key name and paste its value in the CLI, or **Later** to start with `auth_token` and `refresh_token` and edit them yourself. Values entered in the CLI go into the git-ignored `.env` and are copied to the keychain on first launch. They're inlined into the JS bundle, so use dev/test values there, and save real secrets at runtime with `setSecureItem`. If you include `auth_token`, the Axios client reads its token from the keychain.
+- **Secure storage**: react-native-keychain. See [Secure storage with Keychain](#secure-storage-with-keychain)
 
 ## Skip the questions
 

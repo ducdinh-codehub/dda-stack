@@ -99,20 +99,22 @@ jobs:
         working-directory: ${{ runner.temp }}/app
         run: npx expo export --platform ios --output-dir "$RUNNER_TEMP/export"
 
-      # Bundles in development mode, where each mini-app loads from its dev
-      # server — release mode needs a prodUrl for every mini-app. Re.Pack's
-      # bundle command exits 0 even when compilation fails, so check the
-      # bundle was written instead of trusting the exit code.
+      # Every project in dev mode, plus the host in release mode: a fresh
+      # superapp has no prodUrl set, and its release build must still work.
+      # Re.Pack's bundle command exits 0 even when compilation fails, so check
+      # the bundle was written instead of trusting the exit code.
       - name: Bundle with Re.Pack
         if: endsWith(matrix.stack, 'superapp')
         working-directory: ${{ runner.temp }}
         run: |
-          for dir in app-host app-remote app-payments; do
-            echo "::group::$dir"
-            out="$RUNNER_TEMP/bundle/$dir"
-            (cd "$dir" && npx react-native bundle --platform ios --dev true \
+          for target in app-host:true app-remote:true app-payments:true app-host:false; do
+            dir="${target%%:*}"
+            dev="${target##*:}"
+            echo "::group::$dir (dev=$dev)"
+            out="$RUNNER_TEMP/bundle/$dir-dev-$dev"
+            (cd "$dir" && npx react-native bundle --platform ios --dev "$dev" \
               --entry-file "$(node -p "require('./package.json').main || 'index.js'")" \
               --bundle-output "$out/index.bundle" --assets-dest "$out")
             echo "::endgroup::"
-            test -s "$out/index.bundle" || { echo "::error::$dir failed to bundle"; exit 1; }
+            test -s "$out/index.bundle" || { echo "::error::$dir (dev=$dev) failed to bundle"; exit 1; }
           done

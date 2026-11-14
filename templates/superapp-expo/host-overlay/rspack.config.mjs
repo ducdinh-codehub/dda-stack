@@ -17,7 +17,8 @@ const projectRoot = path.dirname(fileURLToPath(import.meta.url));
  * The sub-apps come from miniapps.json — add one with
  * `npx create-dda-stack add-miniapp <name>`. In development each loads from
  * its own dev server (`port`); in production from `prodUrl`, the base URL
- * that serves `<platform>/mf-manifest.json` (entries without one are skipped).
+ * that serves `<platform>/mf-manifest.json` (entries without one build, but
+ * can't load).
  *
  * Versions in package.json are the set Re.Pack tests its Expo integration
  * with — @rspack/core is pinned to 1.6.0 because 1.6.2+ breaks Module
@@ -39,11 +40,25 @@ export default env => {
   const remoteDevHost = platform === 'android' ? '10.0.2.2' : 'localhost';
 
   const miniApps = JSON.parse(fs.readFileSync(path.join(projectRoot, 'miniapps.json'), 'utf8'));
+  // Every mini-app needs a remote, even without a prodUrl — otherwise a release
+  // build can't resolve its `import('<name>/HomeScreen')` and fails. Those get
+  // a placeholder that never resolves (.invalid is a reserved domain), so the
+  // build succeeds and the tab shows "isn't available right now" instead.
+  const missingProdUrl = mode === 'development' ? [] : miniApps.filter(app => !app.prodUrl).map(app => app.name);
+  if (missingProdUrl.length > 0) {
+    console.warn(
+      `[miniapps.json] No prodUrl for: ${missingProdUrl.join(', ')}. Their tabs won't load in this build — ` +
+        `set prodUrl to the URL that serves <platform>/mf-manifest.json for each one.`,
+    );
+  }
   const remotes = Object.fromEntries(
-    miniApps
-      .map(app => [app.name, mode === 'development' ? `http://${remoteDevHost}:${app.port}` : app.prodUrl])
-      .filter(([, baseUrl]) => baseUrl)
-      .map(([name, baseUrl]) => [name, `${name}@${baseUrl.replace(/\/$/, '')}/${platform}/mf-manifest.json`]),
+    miniApps.map(app => {
+      const baseUrl =
+        mode === 'development'
+          ? `http://${remoteDevHost}:${app.port}`
+          : app.prodUrl || `https://produrl-not-set.invalid/${app.name}`;
+      return [app.name, `${app.name}@${baseUrl.replace(/\/$/, '')}/${platform}/mf-manifest.json`];
+    }),
   );
 
   return {

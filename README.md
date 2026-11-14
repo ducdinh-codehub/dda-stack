@@ -143,7 +143,7 @@ If a mini-app tab can't load (its dev server isn't running, or the host wasn't r
 > [!IMPORTANT]
 > **Restart the host's dev server after adding a mini-app.** The host only reads its list of mini-apps when the dev server starts. If it was already running, the new tab shows `Cannot find module 'payments/HomeScreen'` until you restart it. Reloading the app isn't enough, but you don't need to rebuild it with `npm run ios` either. `dev:all` won't start while the host is already running, for this reason. Stop the host first.
 
-Each mini-app is one entry in the host's `miniapps.json`. Edit that file to change a tab's title or icon, or to set `prodUrl`: the address that serves `<platform>/mf-manifest.json` in release builds. Restart the host's dev server after a change.
+Each mini-app is one entry in the host's `miniapps.json`. Edit that file to change a tab's title or icon, or to set `prodUrl`: the address that serves `<platform>/mf-manifest.json` in release builds. A mini-app without a `prodUrl` doesn't break a release build, but its tab shows "isn't available right now" and the build prints a warning. Restart the host's dev server after a change.
 
 If a mini-app uses a native module, install it in the host too and run `pod install` there. Sub-apps can't ship native code to the host.
 

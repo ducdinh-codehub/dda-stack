@@ -43,14 +43,15 @@ jobs:
         include:
           # Expo defaults to Expo Router under --yes.
           - { stack: expo, state: none, pm: pnpm }
-          - { stack: expo, state: zustand, pm: npm, extra: --nativewind --reactotron }
+          - { stack: expo, state: zustand, pm: npm, extra: --nativewind --reactotron --keychain }
           - { stack: expo, state: redux-toolkit, pm: yarn, extra: --router react-navigation }
           # Oldest supported SDK: its expo-router has a different native tabs API.
           - { stack: expo, state: none, pm: pnpm, extra: --expo-sdk 54 }
           - { stack: rn-cli, state: none, pm: npm }
-          - { stack: rn-cli, state: zustand, pm: pnpm, extra: --nativewind }
+          - { stack: rn-cli, state: zustand, pm: pnpm, extra: --nativewind --keychain }
           - { stack: rn-cli, state: redux-toolkit, pm: yarn }
-          - { stack: superapp, state: zustand, pm: pnpm }
+          - { stack: superapp, state: zustand, pm: pnpm, extra: --keychain }
+          - { stack: expo-superapp, state: zustand, pm: pnpm, extra: --keychain }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -70,11 +71,22 @@ jobs:
           ${{ matrix.extra }}
           --install --yes
 
-      # Superapp creates app-host + app-remote; the other stacks create app/.
+      # add-miniapp edits an existing host (miniapps.json, loaders.ts), so it's
+      # the easiest path to break — run it on every superapp.
+      - name: Add a mini-app
+        if: endsWith(matrix.stack, 'superapp')
+        working-directory: ${{ runner.temp }}
+        run: >
+          node "$GITHUB_WORKSPACE/dist/index.js" add-miniapp payments
+          --host app-host --title Payments --icon 💳
+          --install --yes
+
+      # Superapps create app-host, app-remote and app-payments (from add-miniapp);
+      # the other stacks create app/.
       - name: Typecheck and lint generated project(s)
         working-directory: ${{ runner.temp }}
         run: |
-          for dir in app app-host app-remote; do
+          for dir in app app-host app-remote app-payments; do
             [ -d "$dir" ] || continue
             echo "::group::$dir"
             (cd "$dir" && npx tsc --noEmit && npm run lint)
@@ -86,3 +98,21 @@ jobs:
         if: matrix.stack == 'expo'
         working-directory: ${{ runner.temp }}/app
         run: npx expo export --platform ios --output-dir "$RUNNER_TEMP/export"
+
+      # Bundles in development mode, where each mini-app loads from its dev
+      # server — release mode needs a prodUrl for every mini-app. Re.Pack's
+      # bundle command exits 0 even when compilation fails, so check the
+      # bundle was written instead of trusting the exit code.
+      - name: Bundle with Re.Pack
+        if: endsWith(matrix.stack, 'superapp')
+        working-directory: ${{ runner.temp }}
+        run: |
+          for dir in app-host app-remote app-payments; do
+            echo "::group::$dir"
+            out="$RUNNER_TEMP/bundle/$dir"
+            (cd "$dir" && npx react-native bundle --platform ios --dev true \
+              --entry-file "$(node -p "require('./package.json').main || 'index.js'")" \
+              --bundle-output "$out/index.bundle" --assets-dest "$out")
+            echo "::endgroup::"
+            test -s "$out/index.bundle" || { echo "::error::$dir failed to bundle"; exit 1; }
+          done

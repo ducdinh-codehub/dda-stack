@@ -23,7 +23,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        stack: [expo, rn-cli, superapp]
+        stack: [expo, rn-cli, superapp, expo-superapp]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -42,9 +42,13 @@ jobs:
         run: node "$GITHUB_WORKSPACE/dist/index.js" app --stack ${{ matrix.stack }} --state zustand --pm npm --install --yes
 
       - name: Generate android/ (Expo)
-        if: matrix.stack == 'expo'
-        working-directory: ${{ runner.temp }}/app
-        run: npx expo prebuild --platform android --no-install
+        if: startsWith(matrix.stack, 'expo')
+        working-directory: ${{ runner.temp }}
+        run: |
+          for dir in app app-host app-remote; do
+            [ -d "$dir" ] || continue
+            (cd "$dir" && npx expo prebuild --platform android --no-install)
+          done
 
       - name: Gradle assembleDebug
         working-directory: ${{ runner.temp }}
@@ -64,7 +68,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        stack: [expo, rn-cli, superapp]
+        stack: [expo, rn-cli, superapp, expo-superapp]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -81,15 +85,15 @@ jobs:
       # Superapp: the host is the installed app; the remote ships as a bundle.
       - name: Pick project dir
         id: dir
-        run: echo "path=${{ runner.temp }}/${{ matrix.stack == 'superapp' && 'app-host' || 'app' }}" >> "$GITHUB_OUTPUT"
+        run: echo "path=${{ runner.temp }}/${{ endsWith(matrix.stack, 'superapp') && 'app-host' || 'app' }}" >> "$GITHUB_OUTPUT"
 
       - name: Generate ios/ and install pods (Expo)
-        if: matrix.stack == 'expo'
+        if: startsWith(matrix.stack, 'expo')
         working-directory: ${{ steps.dir.outputs.path }}
         run: npx expo prebuild --platform ios
 
       - name: Install pods
-        if: matrix.stack != 'expo'
+        if: "!startsWith(matrix.stack, 'expo')"
         working-directory: ${{ steps.dir.outputs.path }}/ios
         run: bundle install && bundle exec pod install
 

@@ -7,6 +7,7 @@ import { ensurePackageManagerAvailable, formatCommandError, approvePnpmBuilds, t
 import { overlayTemplate, TEMPLATES_ROOT, type TemplateVars } from './scaffold.js';
 import { initExpo } from './nativeInit.js';
 import { addReanimatedFor, assertEmptyDir, buildRnCliApp } from './rnCliApp.js';
+import { useRepackForNativeBuilds } from './repack.js';
 import { FIRST_REMOTE_PORT, readMiniApps, syncMiniAppFiles } from './miniApps.js';
 import { buildExpoSuperappApp } from './expoSuperapp.js';
 import { maybeInstallAndFinish } from './finish.js';
@@ -270,6 +271,7 @@ async function main() {
     keychainValues: answers.keychainValues,
     reactNativeVersion,
   });
+  useRepackForNativeBuilds(hostDir);
   syncMiniAppFiles(hostDir, readMiniApps(hostDir));
 
   await buildRnCliApp({
@@ -289,6 +291,7 @@ async function main() {
     keychainValues: answers.keychainValues,
     reactNativeVersion,
   });
+  useRepackForNativeBuilds(remoteDir);
 
   await finish(superappProjects);
 }

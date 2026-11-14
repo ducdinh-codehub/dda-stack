@@ -15,6 +15,7 @@ import {
 } from './packageManager.js';
 import { containerNameProblem, toIdentifier, toSlug, type StateManagement } from './prompts.js';
 import { assertEmptyDir, buildRnCliApp } from './rnCliApp.js';
+import { useRepackForNativeBuilds } from './repack.js';
 import { MINIAPPS_FILE, nextFreePort, readMiniApps, writeMiniApps, type MiniApp } from './miniApps.js';
 import { TEMPLATES_ROOT } from './scaffold.js';
 import { question, spinner } from './theme.js';
@@ -339,6 +340,7 @@ export async function runAddMiniApp(argv: string[]) {
       keychainValues: {},
       reactNativeVersion: host.reactNativeVersion,
     });
+    useRepackForNativeBuilds(remoteDir);
   }
 
   // Only after the sub-app exists, so a failed scaffold leaves the host untouched.

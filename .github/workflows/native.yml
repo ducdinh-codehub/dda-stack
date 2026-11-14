@@ -60,6 +60,13 @@ jobs:
             echo "::endgroup::"
           done
 
+      # Debug builds load JS from the dev server, so they never bundle it.
+      # A release build does, through the same command users' release builds run.
+      - name: Gradle assembleRelease (superapp host)
+        if: endsWith(matrix.stack, 'superapp')
+        working-directory: ${{ runner.temp }}/app-host/android
+        run: ./gradlew assembleRelease --no-daemon
+
   ios:
     name: iOS / ${{ matrix.stack }}
     if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/')
@@ -97,12 +104,14 @@ jobs:
         working-directory: ${{ steps.dir.outputs.path }}/ios
         run: bundle install && bundle exec pod install
 
+      # Superapp hosts build in Release: Debug loads JS from the dev server and
+      # never bundles it, which hid Xcode bundling with Metro instead of Re.Pack.
       - name: xcodebuild (simulator, unsigned)
         working-directory: ${{ steps.dir.outputs.path }}/ios
         run: |
           workspace=$(ls -d *.xcworkspace | head -1)
           xcodebuild -workspace "$workspace" -scheme "${workspace%.xcworkspace}" \
-            -configuration Debug -sdk iphonesimulator \
+            -configuration ${{ endsWith(matrix.stack, 'superapp') && 'Release' || 'Debug' }} -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO build | tail -50
           exit "${PIPESTATUS[0]}"

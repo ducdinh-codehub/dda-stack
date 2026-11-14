@@ -1,4 +1,27 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { execa } from 'execa';
+
+const XCODE_ENV_CLI_PATH = `
+# Bundle release builds with Re.Pack (added by create-dda-stack). Xcode's
+# bundle phase runs react-native/scripts/bundle.js by default, which is Metro
+# and ignores react-native.config.js. The community CLI reads that file, which
+# routes \`bundle\` to Re.Pack.
+export CLI_PATH="$PROJECT_DIR/../node_modules/@react-native-community/cli/build/bin.js"
+`;
+
+/**
+ * Makes native release builds bundle with Re.Pack instead of Metro. Without
+ * this, Xcode's Release build fails on the host's Module Federation imports
+ * (`Unable to resolve module <name>/HomeScreen`). Debug builds don't bundle,
+ * so only release builds hit it.
+ */
+export function useRepackForNativeBuilds(destDir: string) {
+  const xcodeEnv = path.join(destDir, 'ios', '.xcode.env');
+  if (fs.existsSync(xcodeEnv) && !fs.readFileSync(xcodeEnv, 'utf8').includes('CLI_PATH=')) {
+    fs.appendFileSync(xcodeEnv, XCODE_ENV_CLI_PATH);
+  }
+}
 
 /**
  * Re.Pack releases the superapp flow can scaffold with, newest first, and the

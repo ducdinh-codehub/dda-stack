@@ -40,7 +40,10 @@ const DLX_PREFIX: Record<PackageManager, string[]> = {
 
 // Corepack refuses to run yarn/pnpm when an ancestor package.json pins a
 // different one via "packageManager" (e.g. a company monorepo). The user picked
-// this package manager for the new project, so let it run.
+// this package manager for the new project, so let it run. Only for installs:
+// by then the project is its own root (see the yarn.lock below), so nothing
+// reaches the ancestor. Don't add it to runDlx — the RN CLI's own yarn calls
+// would then climb up and rewrite the ancestor's package.json.
 const COREPACK_ENV = { COREPACK_ENABLE_STRICT: '0' };
 
 export async function installDependencies(projectDir: string, pm: PackageManager) {
@@ -54,6 +57,14 @@ export async function installDependencies(projectDir: string, pm: PackageManager
     const lockfilePath = path.join(projectDir, 'yarn.lock');
     if (!fs.existsSync(lockfilePath)) {
       fs.writeFileSync(lockfilePath, '');
+    }
+    // Yarn Berry defaults to Plug'n'Play, which neither React Native nor Expo
+    // supports. The RN CLI writes this file itself, but create-expo-app doesn't,
+    // and the RN CLI's write is blocked inside a folder that pins another
+    // package manager.
+    const yarnrcPath = path.join(projectDir, '.yarnrc.yml');
+    if (!fs.existsSync(yarnrcPath)) {
+      fs.writeFileSync(yarnrcPath, 'nodeLinker: node-modules\n');
     }
   }
 
@@ -94,7 +105,6 @@ export async function runDlx(
   const [prefixCmd, ...prefixArgs] = DLX_PREFIX[pm];
   await execa(prefixCmd, [...prefixArgs, ...pkgAndArgs], {
     cwd,
-    env: COREPACK_ENV,
     timeout: opts?.timeout,
     ...(opts?.interactive ? { stdio: 'inherit' } : { all: true }),
   });

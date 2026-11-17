@@ -329,6 +329,7 @@ export async function runAddMiniApp(argv: string[]) {
       pm,
       vars: { ...vars, repackVersion: host.repackVersion },
       overlayDirs: [
+        path.join(TEMPLATES_ROOT, 'superapp', 'common'),
         path.join(TEMPLATES_ROOT, 'superapp', 'remote-common'),
         path.join(TEMPLATES_ROOT, 'superapp', 'remote-overlay'),
       ],

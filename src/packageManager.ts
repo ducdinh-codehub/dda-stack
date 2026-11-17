@@ -38,6 +38,14 @@ const DLX_PREFIX: Record<PackageManager, string[]> = {
 // dependency listings) and none of that is interactive input we'd need to relay.
 // On failure the caller can still surface `err.all` for debugging.
 
+// Corepack refuses to run yarn/pnpm when an ancestor package.json pins a
+// different one via "packageManager" (e.g. a company monorepo). The user picked
+// this package manager for the new project, so let it run. Only for installs:
+// by then the project is its own root (see the yarn.lock below), so nothing
+// reaches the ancestor. Don't add it to runDlx — the RN CLI's own yarn calls
+// would then climb up and rewrite the ancestor's package.json.
+const COREPACK_ENV = { COREPACK_ENABLE_STRICT: '0' };
+
 export async function installDependencies(projectDir: string, pm: PackageManager) {
   if (pm === 'yarn') {
     // Yarn Berry treats the nearest ancestor directory with its own package.json
@@ -50,6 +58,14 @@ export async function installDependencies(projectDir: string, pm: PackageManager
     if (!fs.existsSync(lockfilePath)) {
       fs.writeFileSync(lockfilePath, '');
     }
+    // Yarn Berry defaults to Plug'n'Play, which neither React Native nor Expo
+    // supports. The RN CLI writes this file itself, but create-expo-app doesn't,
+    // and the RN CLI's write is blocked inside a folder that pins another
+    // package manager.
+    const yarnrcPath = path.join(projectDir, '.yarnrc.yml');
+    if (!fs.existsSync(yarnrcPath)) {
+      fs.writeFileSync(yarnrcPath, 'nodeLinker: node-modules\n');
+    }
   }
 
   await execa(pm, INSTALL_ARGS[pm], {
@@ -57,7 +73,7 @@ export async function installDependencies(projectDir: string, pm: PackageManager
     all: true,
     // Under CI, Yarn Berry defaults to immutable installs and refuses to write
     // a lockfile — but a freshly generated project has none yet (YN0028).
-    env: pm === 'yarn' ? { YARN_ENABLE_IMMUTABLE_INSTALLS: 'false' } : undefined,
+    env: pm === 'yarn' ? { ...COREPACK_ENV, YARN_ENABLE_IMMUTABLE_INSTALLS: 'false' } : COREPACK_ENV,
   });
 }
 

@@ -46,9 +46,7 @@ See [Add a mini-app to a superapp](#add-a-mini-app-to-a-superapp) for details.
 
 ## Secure storage with Keychain
 
-> **New in 0.6.2.** Works on every stack.
-
-Keep tokens and other secrets in the iOS Keychain / Android Keystore with [react-native-keychain](https://github.com/oblador/react-native-keychain). Say yes when the CLI asks about secure storage, or pass `--keychain`:
+Keep tokens and other secrets in the iOS Keychain / Android Keystore with [react-native-keychain](https://github.com/oblador/react-native-keychain). Works on every stack. Say yes when the CLI asks about secure storage, or pass `--keychain`:
 
 ```bash
 npx create-dda-stack@latest my-app --stack superapp --keychain

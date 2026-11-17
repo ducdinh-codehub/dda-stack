@@ -258,6 +258,7 @@ async function main() {
     pm,
     vars: sharedVars,
     overlayDirs: [
+      path.join(TEMPLATES_ROOT, 'superapp', 'common'),
       path.join(TEMPLATES_ROOT, 'superapp', 'host-common'),
       path.join(TEMPLATES_ROOT, 'superapp', 'host-overlay'),
     ],
@@ -280,6 +281,7 @@ async function main() {
     pm,
     vars: sharedVars,
     overlayDirs: [
+      path.join(TEMPLATES_ROOT, 'superapp', 'common'),
       path.join(TEMPLATES_ROOT, 'superapp', 'remote-common'),
       path.join(TEMPLATES_ROOT, 'superapp', 'remote-overlay'),
     ],

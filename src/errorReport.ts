@@ -59,7 +59,9 @@ function formatOptions(a: AnswerSet): string {
 
 async function packageManagerVersion(pm: PackageManager): Promise<string> {
   try {
-    const { stdout } = await execa(pm, ['--version'], { timeout: 5000 });
+    // Run from the home folder: in the current one, a parent package.json's
+    // "packageManager" field makes corepack refuse any other package manager.
+    const { stdout } = await execa(pm, ['--version'], { cwd: os.homedir(), timeout: 5000 });
     return `${pm} ${stdout.trim()}`;
   } catch {
     return `${pm} (version unknown)`;

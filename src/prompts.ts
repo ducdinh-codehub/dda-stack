@@ -35,6 +35,8 @@ export interface AnswerSet {
   keychainKeys: string[];
   /** Starting values for some of `keychainKeys`, written to .env. Never put in error reports. */
   keychainValues: Record<string, string>;
+  /** Expo and Expo superapp (host only): adds modules/rust-core, an Expo module written in Rust. */
+  useRustModule: boolean;
   stateManagement: StateManagement;
   /** Superapp only: the exact @callstack/repack version both host and sub-app install. */
   repackVersion?: string;
@@ -251,6 +253,25 @@ export async function runPrompts(opts: CliOptions): Promise<AnswerSet> {
 
   const { keys: keychainKeys, values: keychainValues } = await resolveKeychain(opts);
 
+  // Expo only: the module's native side is an Expo Module (args.ts rejects --rust-module elsewhere).
+  let useRustModule = false;
+  if (framework === 'expo' || framework === 'expo-superapp') {
+    useRustModule =
+      opts.useRustModule ??
+      (opts.yes
+        ? false
+        : answered(
+            await p.confirm({
+              message: question(
+                `Add a native module written in Rust? (Needs the Rust toolchain to build${
+                  framework === 'expo-superapp' ? ' — added to the host only' : ''
+                }.)`,
+              ),
+              initialValue: false,
+            }),
+          ));
+  }
+
   return {
     projectName,
     projectSlug: toSlug(projectName),
@@ -260,6 +281,7 @@ export async function runPrompts(opts: CliOptions): Promise<AnswerSet> {
     useNativewind,
     keychainKeys,
     keychainValues,
+    useRustModule,
     stateManagement,
     expoSdk,
     expoRouter,

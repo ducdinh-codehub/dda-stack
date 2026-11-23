@@ -67,6 +67,52 @@ await clearSecureItems(); // e.g. on sign-out
 - **Axios**: if you include `auth_token`, the Axios client reads its token from the keychain.
 - **Superapps**: the host and its mini-apps share the same keychain entries.
 
+## Native code in Rust
+
+Write native code once in Rust and call it from JS on iOS and Android. Works on the Expo stacks.
+
+```bash
+npx create-dda-stack@latest my-app --stack expo --rust-module
+```
+
+You get `modules/rust-core`, a local Expo module with working examples:
+
+```ts
+import RustCore from './modules/rust-core';
+
+RustCore.add(2, 3); // 5
+RustCore.greet('Ana'); // "Hello, Ana, from Rust!"
+RustCore.sum([1, 2, 3]); // 6
+await RustCore.countPrimes(1_000_000); // 78498, runs off the JS thread
+```
+
+### Before the first run
+
+Install the tools once:
+
+- [Rust](https://rustup.rs)
+- For Android: the NDK (Android Studio > SDK Manager > SDK Tools > NDK), then `cargo install cargo-ndk`
+- For iOS: Xcode
+
+Then build in this order:
+
+```bash
+npm run build:rust    # 1. compile the Rust code
+npx expo prebuild     # 2. create ios/ and android/
+npm run ios           # 3. run the app (or: npm run android)
+```
+
+Run `build:rust` before `prebuild`. If you forget, `pod install` and Gradle stop and tell you to run it.
+
+After changing the Rust code, run `build:rust` again, then rebuild the app.
+
+### Good to know
+
+- **No Expo Go**: this is native code, so use a development build.
+- **Superapps**: the module goes in the host only. Mini-apps are JS bundles and can't carry native code.
+- **No binding generator**: Rust is called through plain C functions on iOS and JNI on Android, so you can read every line.
+- **Adding your own functions**: follow the steps in `modules/rust-core/README.md`.
+
 ## Pick a stack
 
 | Stack | Best for |
@@ -92,6 +138,7 @@ You can also add:
 - **NativeWind**: Tailwind CSS for React Native
 - **Reactotron**: a desktop debugger
 - **Secure storage**: react-native-keychain. See [Secure storage with Keychain](#secure-storage-with-keychain)
+- **Rust**: a native module written in Rust (Expo stacks). See [Native code in Rust](#native-code-in-rust)
 
 ## Skip the questions
 
@@ -112,6 +159,7 @@ npx create-dda-stack@latest my-app --stack expo --state zustand --pm pnpm --yes
 | `--keychain` | Add react-native-keychain (keys: `auth_token`, `refresh_token`) |
 | `--keychain-keys` | Pick your own keys, e.g. `auth_token,api_key` |
 | `--keychain-value` | Set a key's value now, e.g. `auth_token=dev-token` (repeat for more keys) |
+| `--rust-module` | Add a native module written in Rust (`expo` and `expo-superapp` only) |
 | `--no-install` | Skip installing dependencies |
 | `--yes` | Use defaults for anything not set |
 

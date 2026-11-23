@@ -6,8 +6,15 @@ import { installDependencies, formatRunCommand, formatCommandError, type Package
 import { question, spinner } from './theme.js';
 import { reportError } from './errorReport.js';
 
+export interface FinishedProject {
+  dir: string;
+  label: string;
+  /** Has modules/rust-core, which must be compiled before the native build. */
+  rustModule?: boolean;
+}
+
 export async function maybeInstallAndFinish(
-  projects: Array<{ dir: string; label: string }>,
+  projects: FinishedProject[],
   pm: PackageManager,
   framework: Framework,
   /** From --install / --no-install / --yes; asked when undefined. */
@@ -50,6 +57,11 @@ export async function maybeInstallAndFinish(
   for (const project of projects) {
     lines.push(`cd ${path.basename(project.dir)}`);
     if (!installed) lines.push(`  ${formatRunCommand(pm, 'install')}`);
+    if (project.rustModule) {
+      lines.push(
+        `  ${formatRunCommand(pm, 'build:rust')}  # compiles modules/rust-core — needs Rust, cargo-ndk and the Android NDK; again after Rust changes`,
+      );
+    }
     if (framework === 'expo-superapp') {
       lines.push(
         '  npx expo prebuild  # generates ios/ and android/, wired to Re.Pack — run once, and again after adding native deps',

@@ -1,0 +1,16 @@
+[package]
+name = "rust_core"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+# staticlib is linked into the iOS app, cdylib is the .so Android loads.
+crate-type = ["staticlib", "cdylib"]
+
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.21"
+
+[profile.release]
+lto = true
+strip = true

@@ -83,6 +83,8 @@ export async function buildExpoSuperappApp(opts: {
   keychainKeys: string[];
   /** Starting values for some of `keychainKeys`, written to .env. */
   keychainValues: Record<string, string>;
+  /** Adds modules/rust-core, an Expo module written in Rust. Host only: sub-apps can't ship native code. */
+  useRustModule?: boolean;
   pm: PackageManager;
 }) {
   // No spinner: create-expo-app may show its own prompt — see initExpo().
@@ -99,6 +101,7 @@ export async function buildExpoSuperappApp(opts: {
     path.join(TEMPLATES_ROOT, 'superapp-expo', `${opts.role}-overlay`),
     ...(opts.useReactotron ? [path.join(TEMPLATES_ROOT, 'reactotron', 'overlay')] : []),
     ...(opts.stateManagement !== 'none' ? [path.join(TEMPLATES_ROOT, 'state', opts.stateManagement)] : []),
+    ...(opts.useRustModule ? [path.join(TEMPLATES_ROOT, 'rust-module', 'overlay')] : []),
   ];
   for (const overlay of overlays) overlayTemplate(overlay, opts.destDir, vars);
   if (opts.keychainKeys.length > 0) addKeychain(opts.destDir, opts.keychainKeys, opts.keychainValues, vars);

@@ -10,7 +10,7 @@ import { addReanimatedFor, assertEmptyDir, buildRnCliApp } from './rnCliApp.js';
 import { useRepackForNativeBuilds } from './repack.js';
 import { FIRST_REMOTE_PORT, readMiniApps, syncMiniAppFiles } from './miniApps.js';
 import { buildExpoSuperappApp } from './expoSuperapp.js';
-import { maybeInstallAndFinish } from './finish.js';
+import { maybeInstallAndFinish, type FinishedProject } from './finish.js';
 import { runAddMiniApp } from './addMiniApp.js';
 import { alignWithExpoSdk } from './expoDeps.js';
 import { finishExpoRouterSetup } from './expoRouter.js';
@@ -43,6 +43,7 @@ async function buildExpoApp(opts: {
   keychainKeys: string[];
   /** Starting values for some of `keychainKeys`, written to .env. */
   keychainValues: Record<string, string>;
+  useRustModule: boolean;
   expoRouter: ExpoRouter;
   pm: PackageManager;
 }) {
@@ -77,6 +78,9 @@ async function buildExpoApp(opts: {
   }
   if (opts.keychainKeys.length > 0) {
     addKeychain(opts.destDir, opts.keychainKeys, opts.keychainValues, opts.vars);
+  }
+  if (opts.useRustModule) {
+    overlayTemplate(path.join(TEMPLATES_ROOT, 'rust-module', 'overlay'), opts.destDir, opts.vars);
   }
   if (useExpoRouter) {
     finishExpoRouterSetup(opts.destDir, {
@@ -122,7 +126,7 @@ async function main() {
   setReportAnswers(answers);
   throwIfForcedError();
   const { framework, packageManager: pm } = answers;
-  const finish = (projects: Array<{ dir: string; label: string }>) =>
+  const finish = (projects: FinishedProject[]) =>
     maybeInstallAndFinish(projects, pm, framework, opts.install ?? (opts.yes ? true : undefined));
 
   if (!(await ensurePackageManagerAvailable(pm, { canPrompt: !opts.yes }))) {
@@ -148,7 +152,8 @@ async function main() {
       useNativewind: answers.useNativewind,
       stateManagement: answers.stateManagement,
       keychainKeys: answers.keychainKeys,
-    keychainValues: answers.keychainValues,
+      keychainValues: answers.keychainValues,
+      useRustModule: answers.useRustModule,
       // runPrompts always sets it for expo.
       expoRouter: answers.expoRouter!,
       pm,
@@ -156,7 +161,7 @@ async function main() {
 
     await warnIfXcodeTooOldForExpo(expoSdk);
 
-    await finish([{ dir: destDir, label: answers.projectSlug }]);
+    await finish([{ dir: destDir, label: answers.projectSlug, rustModule: answers.useRustModule }]);
     return;
   }
 
@@ -220,6 +225,7 @@ async function main() {
     await buildExpoSuperappApp({
       ...shared,
       role: 'host',
+      useRustModule: answers.useRustModule,
       appName: answers.projectName,
       appSlug: 'host',
       destDir: hostDir,
@@ -236,7 +242,7 @@ async function main() {
 
     await warnIfXcodeTooOldForExpo(expoSdk);
 
-    await finish(superappProjects);
+    await finish([{ ...superappProjects[0], rustModule: answers.useRustModule }, superappProjects[1]]);
     return;
   }
 

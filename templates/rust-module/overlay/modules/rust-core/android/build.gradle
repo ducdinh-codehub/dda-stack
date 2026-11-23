@@ -1,0 +1,26 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+// Without the .so files the app still builds, then crashes on launch with
+// UnsatisfiedLinkError — so stop here with the fix instead.
+if (!file('src/main/jniLibs').exists()) {
+  throw new GradleException(
+    "[RustCore] android/src/main/jniLibs is missing. Run the build:rust script (e.g. npm run build:rust), then build again."
+  )
+}
+
+group = 'expo.modules.rustcore'
+version = '1.0.0'
+
+android {
+  namespace "expo.modules.rustcore"
+  defaultConfig {
+    versionCode 1
+    versionName "1.0.0"
+  }
+  lintOptions {
+    abortOnError false
+  }
+}

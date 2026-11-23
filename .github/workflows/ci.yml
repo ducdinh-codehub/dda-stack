@@ -44,14 +44,14 @@ jobs:
           # Expo defaults to Expo Router under --yes.
           - { stack: expo, state: none, pm: pnpm }
           - { stack: expo, state: zustand, pm: npm, extra: --nativewind --reactotron --keychain }
-          - { stack: expo, state: redux-toolkit, pm: yarn, extra: --router react-navigation }
+          - { stack: expo, state: redux-toolkit, pm: yarn, extra: --router react-navigation --rust-module }
           # Oldest supported SDK: its expo-router has a different native tabs API.
           - { stack: expo, state: none, pm: pnpm, extra: --expo-sdk 54 }
           - { stack: rn-cli, state: none, pm: npm }
           - { stack: rn-cli, state: zustand, pm: pnpm, extra: --nativewind --keychain }
           - { stack: rn-cli, state: redux-toolkit, pm: yarn }
           - { stack: superapp, state: zustand, pm: pnpm, extra: --keychain }
-          - { stack: expo-superapp, state: zustand, pm: pnpm, extra: --keychain }
+          - { stack: expo-superapp, state: zustand, pm: pnpm, extra: --keychain --rust-module }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

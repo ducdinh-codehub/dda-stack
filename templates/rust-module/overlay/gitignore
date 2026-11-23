@@ -1,0 +1,4 @@
+# Rust native module build output — rebuilt by `build:rust`
+/modules/rust-core/rust/target
+/modules/rust-core/ios/RustCore.xcframework
+/modules/rust-core/android/src/main/jniLibs

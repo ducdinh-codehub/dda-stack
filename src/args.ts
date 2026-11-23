@@ -25,6 +25,7 @@ export interface CliOptions {
   keychainKeys?: string[];
   /** From --keychain-value key=value; checked against the keys in prompts.ts. */
   keychainValues?: Record<string, string>;
+  useRustModule?: boolean;
   install?: boolean;
   yes: boolean;
 }
@@ -51,6 +52,7 @@ Options:
   --keychain-keys <list> Comma-separated keys for it, e.g. auth_token,refresh_token
   --keychain-value <k=v> Starting value for a key, saved to .env (repeatable).
                          Ends up in the JS bundle and your shell history — dev/test only
+  --[no-]rust-module     Add a local Expo module written in Rust (expo and expo-superapp)
   --[no-]install         Install dependencies after scaffolding
   -y, --yes              Use defaults for anything not passed instead of asking
   -h, --help             Show this help
@@ -106,6 +108,8 @@ export function parseCliArgs(argv: string[]): CliOptions {
         'no-keychain': { type: 'boolean' },
         'keychain-keys': { type: 'string' },
         'keychain-value': { type: 'string', multiple: true },
+        'rust-module': { type: 'boolean' },
+        'no-rust-module': { type: 'boolean' },
         install: { type: 'boolean' },
         'no-install': { type: 'boolean' },
         yes: { type: 'boolean', short: 'y' },
@@ -161,6 +165,12 @@ export function parseCliArgs(argv: string[]): CliOptions {
     throw new CliArgsError(`--nativewind is not supported for --stack ${framework}`);
   }
 
+  const useRustModule = toggle('rust-module', values['rust-module'], values['no-rust-module']);
+  if (useRustModule && framework !== 'expo' && framework !== 'expo-superapp') {
+    // The module's Swift/Kotlin side is an Expo Module, which needs expo-modules-core.
+    throw new CliArgsError('--rust-module needs --stack expo or --stack expo-superapp');
+  }
+
   let useKeychain = toggle('keychain', values.keychain, values['no-keychain']);
   let keychainKeys: string[] | undefined;
   if (values['keychain-keys'] !== undefined) {
@@ -194,6 +204,7 @@ export function parseCliArgs(argv: string[]): CliOptions {
     useKeychain,
     keychainKeys,
     keychainValues,
+    useRustModule,
     install: toggle('install', values.install, values['no-install']),
     yes: values.yes ?? false,
   };

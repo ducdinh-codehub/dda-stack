@@ -67,6 +67,26 @@ await clearSecureItems(); // e.g. on sign-out
 - **Axios**: if you include `auth_token`, the Axios client reads its token from the keychain.
 - **Superapps**: the host and its mini-apps share the same keychain entries.
 
+## Native code in Rust
+
+Write native code once in Rust and call it from JS on iOS and Android. Works on the Expo stacks. Say yes when the CLI asks, or pass `--rust-module`:
+
+```bash
+npx create-dda-stack@latest my-app --stack expo --rust-module
+```
+
+You get `modules/rust-core`, a local Expo module that calls into Rust through plain C functions (iOS) and JNI (Android), with no binding generator:
+
+```ts
+import RustCore from './modules/rust-core';
+
+RustCore.add(2, 3); // 5, computed in Rust
+```
+
+- **Build it first**: install [Rust](https://rustup.rs), then for Android the NDK and `cargo install cargo-ndk`. Run `npm run build:rust` before `npx expo prebuild`, and again after changing the Rust code.
+- **Superapps**: added to the host only. Mini-apps ship as JS bundles, so they can't carry native code.
+- **Adding functions**: see `modules/rust-core/README.md`.
+
 ## Pick a stack
 
 | Stack | Best for |
@@ -92,6 +112,7 @@ You can also add:
 - **NativeWind**: Tailwind CSS for React Native
 - **Reactotron**: a desktop debugger
 - **Secure storage**: react-native-keychain. See [Secure storage with Keychain](#secure-storage-with-keychain)
+- **Rust**: a native module written in Rust (Expo stacks). See [Native code in Rust](#native-code-in-rust)
 
 ## Skip the questions
 
@@ -112,6 +133,7 @@ npx create-dda-stack@latest my-app --stack expo --state zustand --pm pnpm --yes
 | `--keychain` | Add react-native-keychain (keys: `auth_token`, `refresh_token`) |
 | `--keychain-keys` | Pick your own keys, e.g. `auth_token,api_key` |
 | `--keychain-value` | Set a key's value now, e.g. `auth_token=dev-token` (repeat for more keys) |
+| `--rust-module` | Add a native module written in Rust (`expo` and `expo-superapp` only) |
 | `--no-install` | Skip installing dependencies |
 | `--yes` | Use defaults for anything not set |
 

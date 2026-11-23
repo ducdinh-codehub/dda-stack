@@ -1,0 +1,5 @@
+{
+  "scripts": {
+    "build:rust": "sh modules/rust-core/build-rust.sh"
+  }
+}

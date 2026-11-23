@@ -69,23 +69,49 @@ await clearSecureItems(); // e.g. on sign-out
 
 ## Native code in Rust
 
-Write native code once in Rust and call it from JS on iOS and Android. Works on the Expo stacks. Say yes when the CLI asks, or pass `--rust-module`:
+Write native code once in Rust and call it from JS on iOS and Android. Works on the Expo stacks.
 
 ```bash
 npx create-dda-stack@latest my-app --stack expo --rust-module
 ```
 
-You get `modules/rust-core`, a local Expo module that calls into Rust through plain C functions (iOS) and JNI (Android), with no binding generator:
+You get `modules/rust-core`, a local Expo module with working examples:
 
 ```ts
 import RustCore from './modules/rust-core';
 
-RustCore.add(2, 3); // 5, computed in Rust
+RustCore.add(2, 3); // 5
+RustCore.greet('Ana'); // "Hello, Ana, from Rust!"
+RustCore.sum([1, 2, 3]); // 6
+await RustCore.countPrimes(1_000_000); // 78498, runs off the JS thread
 ```
 
-- **Build it first**: install [Rust](https://rustup.rs), then for Android the NDK and `cargo install cargo-ndk`. Run `npm run build:rust` before `npx expo prebuild`, and again after changing the Rust code.
-- **Superapps**: added to the host only. Mini-apps ship as JS bundles, so they can't carry native code.
-- **Adding functions**: see `modules/rust-core/README.md`.
+### Before the first run
+
+Install the tools once:
+
+- [Rust](https://rustup.rs)
+- For Android: the NDK (Android Studio > SDK Manager > SDK Tools > NDK), then `cargo install cargo-ndk`
+- For iOS: Xcode
+
+Then build in this order:
+
+```bash
+npm run build:rust    # 1. compile the Rust code
+npx expo prebuild     # 2. create ios/ and android/
+npm run ios           # 3. run the app (or: npm run android)
+```
+
+Run `build:rust` before `prebuild`. If you forget, `pod install` and Gradle stop and tell you to run it.
+
+After changing the Rust code, run `build:rust` again, then rebuild the app.
+
+### Good to know
+
+- **No Expo Go**: this is native code, so use a development build.
+- **Superapps**: the module goes in the host only. Mini-apps are JS bundles and can't carry native code.
+- **No binding generator**: Rust is called through plain C functions on iOS and JNI on Android, so you can read every line.
+- **Adding your own functions**: follow the steps in `modules/rust-core/README.md`.
 
 ## Pick a stack
 

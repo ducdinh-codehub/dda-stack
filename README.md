@@ -12,6 +12,22 @@ Setting up Module Federation in React Native by hand is slow and easy to get wro
   <img src="assets/superapp-demo.gif" alt="A superapp host on iPhone switching between its Home tab and two mini-apps, Shop and Payments, each loaded at runtime from its own dev server" width="320">
 </p>
 
+## Contents
+
+- [Quick start](#quick-start)
+- [Build a superapp](#build-a-superapp)
+- [Secure storage with Keychain](#secure-storage-with-keychain)
+- [Native code in Rust](#native-code-in-rust)
+- [Check before you submit](#check-before-you-submit)
+- [Pick a stack](#pick-a-stack)
+- [What you get](#what-you-get)
+- [Skip the questions](#skip-the-questions)
+- [Add a mini-app to a superapp](#add-a-mini-app-to-a-superapp)
+- [Requirements](#requirements)
+- [Report an issue](#report-an-issue)
+- [Contributing](#contributing)
+- [License](#license)
+
 ## Quick start
 
 ```bash

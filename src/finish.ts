@@ -71,7 +71,8 @@ export async function maybeInstallAndFinish(
   lines.push('');
   for (const project of projects) {
     lines.push(`cd ${path.basename(project.dir)}`);
-    if (!installed) lines.push(`  ${formatRunCommand(pm, 'install')}`);
+    // `<pm> install` for every manager — `npm run install` would look for a script named install.
+    if (!installed) lines.push(`  ${pm} install`);
     if (project.rustModule) {
       lines.push(
         `  ${formatRunCommand(pm, 'build:rust')}  # compiles modules/rust-core — needs Rust, cargo-ndk and the Android NDK; again after Rust changes`,

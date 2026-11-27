@@ -5,6 +5,7 @@ import type { Framework } from './prompts.js';
 import { installDependencies, formatRunCommand, formatCommandError, type PackageManager } from './packageManager.js';
 import { question, spinner } from './theme.js';
 import { reportError } from './errorReport.js';
+import { scanApp } from './check.js';
 
 export interface FinishedProject {
   dir: string;
@@ -19,6 +20,8 @@ export async function maybeInstallAndFinish(
   framework: Framework,
   /** From --install / --no-install / --yes; asked when undefined. */
   install: boolean | undefined,
+  /** From --scan / --no-scan / --yes; asked when undefined. */
+  scan: boolean | undefined,
 ) {
   const shouldInstall =
     install ??
@@ -47,6 +50,18 @@ export async function maybeInstallAndFinish(
         process.exitCode = 1;
       }
     }
+  }
+
+  const shouldScan =
+    scan ??
+    (await p.confirm({
+      message: question('Run a store compliance scan for App Store / Google Play rejection risks?'),
+      initialValue: true,
+    }));
+  if (!p.isCancel(shouldScan) && shouldScan) {
+    // A new project's findings are reminders for later, not a failed scaffold — so no exit code.
+    for (const project of projects) await scanApp(project.dir, project.label);
+    p.log.info(`Scan again before submitting: npx create-dda-stack@latest check`);
   }
 
   const lines = [`${pc.green('Done!')} Created:`, ''];

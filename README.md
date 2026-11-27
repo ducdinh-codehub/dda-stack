@@ -113,6 +113,25 @@ After changing the Rust code, run `build:rust` again, then rebuild the app.
 - **No binding generator**: Rust is called through plain C functions on iOS and JNI on Android, so you can read every line.
 - **Adding your own functions**: follow the steps in `modules/rust-core/README.md`.
 
+## Check before you submit
+
+When the CLI finishes creating a project, it asks whether to scan it for App Store and Google Play rejection risks. Pass `--scan` or `--no-scan` to skip the question.
+
+Before you upload to the App Store or Google Play, scan the app again:
+
+```bash
+npx create-dda-stack@latest check ./my-app
+```
+
+It reads the app's files and lists each problem with the guideline it breaks and how to fix it. It checks for:
+
+- missing or vague iOS permission messages for camera, photos, location, contacts, microphone and Face ID
+- no privacy manifest, no way to delete an account, or Google or Facebook login without Sign in with Apple
+- placeholder bundle IDs, a Play target API level that's too low, and restricted Android permissions
+- localhost or plain `http://` URLs, and the `example.com` API placeholder left in `.env`
+
+It exits with `1` if anything high-risk is found, so you can run it in CI before `eas submit`. It catches common mistakes only. It doesn't replace reading the store guidelines.
+
 ## Pick a stack
 
 | Stack | Best for |

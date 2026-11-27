@@ -27,6 +27,7 @@ export interface CliOptions {
   keychainValues?: Record<string, string>;
   useRustModule?: boolean;
   install?: boolean;
+  scan?: boolean;
   yes: boolean;
 }
 
@@ -37,6 +38,7 @@ const EXPO_ROUTERS: ExpoRouter[] = ['expo-router', 'react-navigation'];
 
 const HELP = `Usage: create-dda-stack [project-name] [options]
        create-dda-stack add-miniapp [name] [options]   (see add-miniapp --help)
+       create-dda-stack check [app-dir]                (see check --help)
 
 Options:
   --stack <stack>        rn-cli | expo | superapp | expo-superapp
@@ -54,6 +56,7 @@ Options:
                          Ends up in the JS bundle and your shell history — dev/test only
   --[no-]rust-module     Add a local Expo module written in Rust (expo and expo-superapp)
   --[no-]install         Install dependencies after scaffolding
+  --[no-]scan            Scan the new project for App Store / Play rejection risks
   -y, --yes              Use defaults for anything not passed instead of asking
   -h, --help             Show this help
   -v, --version          Show the version
@@ -112,6 +115,8 @@ export function parseCliArgs(argv: string[]): CliOptions {
         'no-rust-module': { type: 'boolean' },
         install: { type: 'boolean' },
         'no-install': { type: 'boolean' },
+        scan: { type: 'boolean' },
+        'no-scan': { type: 'boolean' },
         yes: { type: 'boolean', short: 'y' },
         help: { type: 'boolean', short: 'h' },
         version: { type: 'boolean', short: 'v' },
@@ -206,6 +211,7 @@ export function parseCliArgs(argv: string[]): CliOptions {
     keychainValues,
     useRustModule,
     install: toggle('install', values.install, values['no-install']),
+    scan: toggle('scan', values.scan, values['no-scan']),
     yes: values.yes ?? false,
   };
 

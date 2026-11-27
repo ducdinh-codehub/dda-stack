@@ -5,6 +5,7 @@ import type { Framework } from './prompts.js';
 import { installDependencies, formatRunCommand, formatCommandError, type PackageManager } from './packageManager.js';
 import { question, spinner } from './theme.js';
 import { reportError } from './errorReport.js';
+import { scanApp } from './check.js';
 
 export interface FinishedProject {
   dir: string;
@@ -19,6 +20,8 @@ export async function maybeInstallAndFinish(
   framework: Framework,
   /** From --install / --no-install / --yes; asked when undefined. */
   install: boolean | undefined,
+  /** From --scan / --no-scan / --yes; asked when undefined. */
+  scan: boolean | undefined,
 ) {
   const shouldInstall =
     install ??
@@ -49,6 +52,18 @@ export async function maybeInstallAndFinish(
     }
   }
 
+  const shouldScan =
+    scan ??
+    (await p.confirm({
+      message: question('Run a store compliance scan for App Store / Google Play rejection risks?'),
+      initialValue: true,
+    }));
+  if (!p.isCancel(shouldScan) && shouldScan) {
+    // A new project's findings are reminders for later, not a failed scaffold — so no exit code.
+    for (const project of projects) await scanApp(project.dir, project.label);
+    p.log.info(`Scan again before submitting: npx create-dda-stack@latest check`);
+  }
+
   const lines = [`${pc.green('Done!')} Created:`, ''];
   for (const project of projects) {
     lines.push(`  ${project.dir}`);
@@ -56,7 +71,8 @@ export async function maybeInstallAndFinish(
   lines.push('');
   for (const project of projects) {
     lines.push(`cd ${path.basename(project.dir)}`);
-    if (!installed) lines.push(`  ${formatRunCommand(pm, 'install')}`);
+    // `<pm> install` for every manager — `npm run install` would look for a script named install.
+    if (!installed) lines.push(`  ${pm} install`);
     if (project.rustModule) {
       lines.push(
         `  ${formatRunCommand(pm, 'build:rust')}  # compiles modules/rust-core — needs Rust, cargo-ndk and the Android NDK; again after Rust changes`,

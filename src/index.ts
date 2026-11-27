@@ -12,6 +12,7 @@ import { FIRST_REMOTE_PORT, readMiniApps, syncMiniAppFiles } from './miniApps.js
 import { buildExpoSuperappApp } from './expoSuperapp.js';
 import { maybeInstallAndFinish, type FinishedProject } from './finish.js';
 import { runAddMiniApp } from './addMiniApp.js';
+import { runCheck } from './check.js';
 import { alignWithExpoSdk } from './expoDeps.js';
 import { finishExpoRouterSetup } from './expoRouter.js';
 import { getXcodeToolchain, isXcodeTooOldForExpoSdk } from './xcode.js';
@@ -113,6 +114,10 @@ async function main() {
     await runAddMiniApp(argv.slice(1));
     return;
   }
+  if (argv[0] === 'check') {
+    await runCheck(argv.slice(1));
+    return;
+  }
 
   let opts;
   try {
@@ -127,7 +132,13 @@ async function main() {
   throwIfForcedError();
   const { framework, packageManager: pm } = answers;
   const finish = (projects: FinishedProject[]) =>
-    maybeInstallAndFinish(projects, pm, framework, opts.install ?? (opts.yes ? true : undefined));
+    maybeInstallAndFinish(
+      projects,
+      pm,
+      framework,
+      opts.install ?? (opts.yes ? true : undefined),
+      opts.scan ?? (opts.yes ? true : undefined),
+    );
 
   if (!(await ensurePackageManagerAvailable(pm, { canPrompt: !opts.yes }))) {
     p.cancel(
